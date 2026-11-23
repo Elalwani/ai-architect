@@ -1,0 +1,19 @@
+{
+  "name": "AI Architect – منصة التصميم الهندسي الذكي",
+  "short_name": "AI Architect",
+  "description": "منصة هندسية ذكية لإنشاء المخططات المعمارية 2D، التوليد بالذكاء الاصطناعي، المعاينة ثلاثية الأبعاد 3D، وحصر الكميات وتصدير PDF.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#07111e",
+  "theme_color": "#0b192c",
+  "dir": "rtl",
+  "lang": "ar",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
