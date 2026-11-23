@@ -1,0 +1,3201 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Architect – منصة التصميم الهندسي الذكي</title>
+  <meta name="description" content="منصة AI Architect للتصميم المعماري والهندسي الذكي: رسم مخططات 2D، توليد مخططات بالذكاء الاصطناعي، معاينة ثلاثية الأبعاد 3D، حصر الكميات وتصدير PDF مجاناً." />
+  <meta name="keywords" content="تصميم هندسي, مخططات معمارية, الذكاء الاصطناعي, تصميم منازل, 2D CAD, 3D Architecture, AI Architect" />
+  <meta name="author" content="AI Architect" />
+  <meta name="theme-color" content="#0b192c" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="AI Architect – منصة التصميم الهندسي الذكي" />
+  <meta property="og:description" content="أنشئ مخططات المنازل والمباني 2D وحوّلها فوراً إلى مجسم 3D مع حساب المساحات والكميات وتصدير PDF." />
+  <meta property="og:locale" content="ar_AR" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="AI Architect – منصة التصميم الهندسي الذكي" />
+  <meta name="twitter:description" content="تصميم مخططات المباني بالذكاء الاصطناعي والرسم اليدوي 2D والعرض ثلاثي الأبعاد 3D." />
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+  <link rel="apple-touch-icon" href="./icon.svg" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Cairo', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            blueprint: {
+              950: '#07111e',
+              900: '#0b192c',
+              800: '#122640',
+              700: '#1b385c',
+              600: '#254e7d',
+              500: '#2e6ab0',
+              100: '#e8eff7',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'Cairo', sans-serif; }
+    .cad-grid-bg {
+      background-size: 24px 24px;
+      background-image:
+        linear-gradient(to right, rgba(37, 78, 125, 0.08) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(37, 78, 125, 0.08) 1px, transparent 1px);
+    }
+    .dark .cad-grid-bg {
+      background-image:
+        linear-gradient(to right, rgba(148, 163, 184, 0.07) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(148, 163, 184, 0.07) 1px, transparent 1px);
+    }
+    canvas.cad-canvas { touch-action: none; user-select: none; }
+    #threeContainer canvas { touch-action: none; display: block; width: 100%; height: 100%; }
+
+    @media print {
+      body * { visibility: hidden !important; }
+      #printReportRoot, #printReportRoot * { visibility: visible !important; }
+      #printReportRoot {
+        position: static !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #ffffff !important;
+        color: #0f172a !important;
+      }
+      .no-print { display: none !important; }
+      .print-page-break { page-break-before: always; break-before: page; }
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 dark:bg-blueprint-950 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-200">
+
+  <!-- الشريط العلوي المتجاوب -->
+  <header class="no-print sticky top-0 z-40 bg-white/95 dark:bg-blueprint-900/95 backdrop-blur border-b border-slate-200 dark:border-blueprint-700 shadow-sm">
+    <div class="max-w-7xl mx-auto px-3 sm:px-6 py-2.5">
+      <div class="flex flex-col gap-2">
+        <div class="flex items-center justify-between gap-2">
+          <button onclick="navigateTo('landing')" class="flex items-center gap-2.5 text-right group min-w-0">
+            <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-blueprint-800 dark:bg-blueprint-600 text-white flex items-center justify-center shadow-sm shrink-0">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6M9 9h.01M15 9h.01M9 13h.01M15 13h.01" />
+              </svg>
+            </div>
+            <div class="min-w-0">
+              <div class="flex items-center gap-1.5">
+                <span class="font-extrabold text-base sm:text-lg tracking-tight text-blueprint-900 dark:text-white truncate">AI Architect</span>
+                <span class="hidden md:inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blueprint-100 dark:bg-blueprint-800 text-blueprint-700 dark:text-sky-300">مراحل 1–6</span>
+              </div>
+              <p class="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 leading-tight truncate">منصة التصميم الهندسي الذكي</p>
+            </div>
+          </button>
+
+          <div class="flex items-center gap-1.5 shrink-0">
+            <button onclick="toggleLangHint()" title="اللغات المدعومة" class="px-2 py-1.5 rounded-lg text-xs font-bold border border-slate-200 dark:border-blueprint-700 bg-slate-50 dark:bg-blueprint-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-blueprint-700 transition">
+              AR <span class="text-slate-400 font-normal">| EN/FR</span>
+            </button>
+            <button onclick="toggleTheme()" aria-label="تبديل المظهر" class="p-2 rounded-lg border border-slate-200 dark:border-blueprint-700 bg-slate-50 dark:bg-blueprint-800 text-slate-700 dark:text-amber-300 hover:bg-slate-100 dark:hover:bg-blueprint-700 transition">
+              <svg id="sunIcon" class="w-4 h-4 hidden dark:block" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+              <svg id="moonIcon" class="w-4 h-4 block dark:hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            </button>
+            <button onclick="navigateTo('dashboard')" id="navDashboardBtn" class="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold bg-blueprint-800 hover:bg-blueprint-700 dark:bg-blueprint-600 dark:hover:bg-blueprint-500 text-white shadow-sm transition whitespace-nowrap">
+              لوحة التحكم
+            </button>
+          </div>
+        </div>
+
+        <div id="subToolbarRow" class="flex items-center justify-between gap-2 pt-0.5">
+          <div id="landingQuickNav" class="flex items-center gap-1.5 overflow-x-auto pb-0.5 text-xs">
+            <button onclick="navigateTo('landing')" class="px-2.5 py-1 rounded-md font-semibold bg-blueprint-100 dark:bg-blueprint-800 text-blueprint-800 dark:text-sky-200 whitespace-nowrap">الرئيسية</button>
+            <a href="#project-types" class="px-2.5 py-1 rounded-md font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-blueprint-800 whitespace-nowrap">أنواع المشاريع</a>
+            <a href="#stages" class="px-2.5 py-1 rounded-md font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-blueprint-800 whitespace-nowrap">مراحل البناء</a>
+            <button onclick="openDisclaimerModal()" class="px-2.5 py-1 rounded-md font-medium text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40 whitespace-nowrap">إخلاء المسؤولية</button>
+          </div>
+
+          <div id="dashboardQuickNav" class="hidden w-full flex items-center justify-between gap-2 text-xs">
+            <div class="flex items-center gap-1.5">
+              <button onclick="navigateTo('landing')" class="px-2.5 py-1 rounded-md font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-blueprint-800">← الرئيسية</button>
+              <span class="font-bold text-blueprint-800 dark:text-sky-300">إدارة المشاريع الهندسية</span>
+            </div>
+            <button onclick="openProjectModal()" class="px-3 py-1.5 rounded-lg font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition whitespace-nowrap">+ مشروع جديد</button>
+          </div>
+
+          <div id="editorQuickNav" class="hidden w-full flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div class="flex items-center gap-1.5 min-w-0 max-w-full">
+              <button onclick="navigateTo('dashboard')" class="px-2.5 py-1 rounded-md font-semibold bg-slate-100 dark:bg-blueprint-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-blueprint-700 shrink-0">← المشاريع</button>
+              <span id="editorProjectTitleBadge" class="font-bold text-blueprint-900 dark:text-white truncate">مشروع بدون عنوان</span>
+            </div>
+            <div class="flex flex-wrap items-center gap-1.5">
+              <span id="editorSaveStatus" class="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold hidden sm:inline">محفوظ ✓</span>
+              <button onclick="openAiGeneratorModal()" class="px-2.5 py-1.5 rounded-lg font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition whitespace-nowrap">✨ AI</button>
+              <button onclick="openReportModal('boq')" class="px-2.5 py-1.5 rounded-lg font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-sm transition whitespace-nowrap">📊 الكميات</button>
+              <button onclick="openReportModal('pdf')" class="px-2.5 py-1.5 rounded-lg font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-sm transition whitespace-nowrap">📄 PDF</button>
+              <button onclick="saveCurrentEditorProject(true)" class="px-2.5 py-1.5 rounded-lg font-bold bg-blueprint-800 hover:bg-blueprint-700 dark:bg-blueprint-600 text-white shadow-sm transition whitespace-nowrap">حفظ</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- شريط تنبيه هندسي ثابت -->
+  <div class="no-print bg-amber-50 dark:bg-amber-950/50 border-b border-amber-200 dark:border-amber-800/70 text-amber-900 dark:text-amber-200 text-xs">
+    <div class="max-w-7xl mx-auto px-3 sm:px-6 py-1.5 flex items-center justify-between gap-2">
+      <p class="leading-snug">
+        <strong class="font-bold">تنبيه هندسي:</strong> المخططات وحسابات المساحات وتقديرات المواد أولية وتصورية، ولا تُعد صالحة للتنفيذ دون مراجعة واعتماد مهندس مختص.
+      </p>
+      <button onclick="openDisclaimerModal()" class="underline font-bold shrink-0 hover:text-amber-700 dark:hover:text-amber-100">التفاصيل</button>
+    </div>
+  </div>
+
+  <!-- ================= المرحلة الأولى: الواجهة الرئيسية ولوحة التحكم ================= -->
+  <main id="landingView" class="flex-1">
+    <section class="relative overflow-hidden cad-grid-bg border-b border-slate-200 dark:border-blueprint-800">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 py-10 lg:py-14 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+        <div class="lg:col-span-6 space-y-5">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blueprint-100 dark:bg-blueprint-800 text-blueprint-800 dark:text-sky-300 text-xs font-bold">
+            <span>المرحلة 1–6 مكتملة</span>
+            <span>•</span>
+            <span>2D + AI + 3D + حصر كميات + PDF</span>
+          </div>
+          <h1 class="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-blueprint-950 dark:text-white leading-tight">
+            صمّم مخططات المباني بذكاء ووضوح من <span class="text-blueprint-600 dark:text-sky-400">2D إلى 3D</span>
+          </h1>
+          <p class="text-slate-600 dark:text-slate-300 text-sm sm:text-base leading-relaxed">
+            منصة <strong>AI Architect</strong> تجمع بين الرسم الهندسي اليدوي ثنائي الأبعاد، التوليد المعماري الذكي (مجاني محلياً أو عبر Gemini API)، المعاينة ثلاثية الأبعاد بـ Three.js، وحساب المساحات والكميات وتصدير تقارير PDF والطباعة.
+          </p>
+          <div class="flex flex-wrap items-center gap-3 pt-1">
+            <button onclick="navigateTo('dashboard')" class="px-5 py-3 rounded-xl bg-blueprint-800 hover:bg-blueprint-700 dark:bg-blueprint-600 dark:hover:bg-blueprint-500 text-white font-bold text-sm shadow-md transition">
+              الدخول إلى لوحة التحكم
+            </button>
+            <button onclick="openProjectModal()" class="px-5 py-3 rounded-xl bg-white dark:bg-blueprint-800 border border-slate-300 dark:border-blueprint-600 text-blueprint-900 dark:text-white font-bold text-sm hover:bg-slate-50 dark:hover:bg-blueprint-700 transition">
+              + إنشاء مشروع جديد
+            </button>
+          </div>
+          <div class="grid grid-cols-3 gap-3 pt-3 border-t border-slate-200 dark:border-blueprint-800 text-center">
+            <div class="bg-white/80 dark:bg-blueprint-900/70 p-2.5 rounded-xl border border-slate-200/80 dark:border-blueprint-800">
+              <div class="text-lg sm:text-xl font-extrabold text-blueprint-800 dark:text-sky-300">8</div>
+              <div class="text-[11px] text-slate-500 dark:text-slate-400">أنواع مشاريع</div>
+            </div>
+            <div class="bg-white/80 dark:bg-blueprint-900/70 p-2.5 rounded-xl border border-slate-200/80 dark:border-blueprint-800">
+              <div class="text-lg sm:text-xl font-extrabold text-blueprint-800 dark:text-sky-300">2D + 3D</div>
+              <div class="text-[11px] text-slate-500 dark:text-slate-400">تحويل فوري حي</div>
+            </div>
+            <div class="bg-white/80 dark:bg-blueprint-900/70 p-2.5 rounded-xl border border-slate-200/80 dark:border-blueprint-800">
+              <div class="text-lg sm:text-xl font-extrabold text-emerald-600 dark:text-emerald-400">PDF + BOQ</div>
+              <div class="text-[11px] text-slate-500 dark:text-slate-400">مساحات ومواد</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="lg:col-span-6">
+          <div class="bg-blueprint-900 text-white rounded-2xl border border-blueprint-700 shadow-xl overflow-hidden">
+            <div class="px-4 py-3 bg-blueprint-800/90 border-b border-blueprint-700 flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+                <span class="text-xs sm:text-sm font-bold">معاينة مخطط معماري تفاعلي (نموذج أولي)</span>
+              </div>
+              <div class="flex items-center gap-1.5 text-[11px]">
+                <button onclick="toggleHeroLayer('grid')" id="heroBtnGrid" class="px-2 py-1 rounded bg-blueprint-600 text-white font-semibold">الشبكة</button>
+                <button onclick="toggleHeroLayer('dims')" id="heroBtnDims" class="px-2 py-1 rounded bg-blueprint-600 text-white font-semibold">الأبعاد</button>
+                <button onclick="toggleHeroLayer('labels')" id="heroBtnLabels" class="px-2 py-1 rounded bg-blueprint-600 text-white font-semibold">الغرف</button>
+              </div>
+            </div>
+            <div class="p-3 sm:p-4 bg-[#081322]">
+              <svg id="heroBlueprintSvg" viewBox="0 0 600 380" class="w-full h-auto rounded-lg bg-[#0a192f] border border-blueprint-700/60">
+                <defs>
+                  <pattern id="heroMinorGrid" width="15" height="15" patternUnits="userSpaceOnUse">
+                    <path d="M 15 0 L 0 0 0 15" fill="none" stroke="rgba(125, 211, 252, 0.07)" stroke-width="0.7"/>
+                  </pattern>
+                  <pattern id="heroMajorGrid" width="60" height="60" patternUnits="userSpaceOnUse">
+                    <rect width="60" height="60" fill="url(#heroMinorGrid)"/>
+                    <path d="M 60 0 L 0 0 0 60" fill="none" stroke="rgba(125, 211, 252, 0.16)" stroke-width="1"/>
+                  </pattern>
+                </defs>
+                <rect id="heroGridRect" x="0" y="0" width="600" height="380" fill="url(#heroMajorGrid)" />
+                <rect x="70" y="55" width="460" height="260" fill="none" stroke="#38bdf8" stroke-width="1.2" stroke-dasharray="6 4" opacity="0.65"/>
+                <g id="heroRoomsLayer">
+                  <rect x="95" y="80" width="210" height="130" fill="rgba(56, 189, 248, 0.12)" stroke="#e2e8f0" stroke-width="3"/>
+                  <rect x="305" y="80" width="200" height="130" fill="rgba(16, 185, 129, 0.12)" stroke="#e2e8f0" stroke-width="3"/>
+                  <rect x="95" y="210" width="145" height="80" fill="rgba(245, 158, 11, 0.12)" stroke="#e2e8f0" stroke-width="3"/>
+                  <rect x="240" y="210" width="95" height="80" fill="rgba(99, 102, 241, 0.14)" stroke="#e2e8f0" stroke-width="3"/>
+                  <rect x="335" y="210" width="170" height="80" fill="rgba(148, 163, 184, 0.12)" stroke="#e2e8f0" stroke-width="3"/>
+                  <path d="M 195 210 A 28 28 0 0 1 223 182" fill="none" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="3 2"/>
+                  <line x1="195" y1="210" x2="195" y2="182" stroke="#38bdf8" stroke-width="2"/>
+                  <line x1="305" y1="125" x2="305" y2="165" stroke="#0a192f" stroke-width="4"/>
+                  <path d="M 305 125 A 32 32 0 0 1 337 157" fill="none" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="3 2"/>
+                </g>
+                <g id="heroLabelsLayer" fill="#f8fafc" font-family="Cairo, sans-serif" text-anchor="middle">
+                  <text x="200" y="140" font-size="14" font-weight="700">صالة معيشة واستقبال</text>
+                  <text x="200" y="160" font-size="11" fill="#93c5fd">6.3 م × 3.9 م (24.6 م²)</text>
+                  <text x="405" y="140" font-size="14" font-weight="700">غرفة نوم رئيسية</text>
+                  <text x="405" y="160" font-size="11" fill="#6ee7b7">6.0 م × 3.9 م (23.4 م²)</text>
+                  <text x="167" y="247" font-size="13" font-weight="700">المطبخ</text>
+                  <text x="167" y="265" font-size="11" fill="#fcd34d">4.3 م × 2.4 م</text>
+                  <text x="287" y="247" font-size="12" font-weight="700">حمام</text>
+                  <text x="287" y="265" font-size="10" fill="#c4b5fd">2.8 م × 2.4 م</text>
+                  <text x="420" y="247" font-size="13" font-weight="700">مرآب سيارة</text>
+                  <text x="420" y="265" font-size="11" fill="#cbd5e1">5.1 م × 2.4 م</text>
+                </g>
+                <g id="heroDimsLayer" fill="#7dd3fc" stroke="#7dd3fc" font-size="11" font-family="JetBrains Mono, monospace" text-anchor="middle">
+                  <line x1="95" y1="38" x2="505" y2="38" stroke-width="1"/>
+                  <line x1="95" y1="33" x2="95" y2="43" stroke-width="1"/>
+                  <line x1="505" y1="33" x2="505" y2="43" stroke-width="1"/>
+                  <rect x="272" y="27" width="56" height="18" rx="4" fill="#081322" stroke="none"/>
+                  <text x="300" y="40" stroke="none" font-weight="600">15.0 م</text>
+                  <line x1="548" y1="80" x2="548" y2="290" stroke-width="1"/>
+                  <line x1="543" y1="80" x2="553" y2="80" stroke-width="1"/>
+                  <line x1="543" y1="290" x2="553" y2="290" stroke-width="1"/>
+                  <rect x="524" y="175" width="48" height="18" rx="4" fill="#081322" stroke="none"/>
+                  <text x="548" y="188" stroke="none" font-weight="600">10.0 م</text>
+                </g>
+              </svg>
+            </div>
+            <div class="px-4 py-2.5 bg-blueprint-900 border-t border-blueprint-800 flex items-center justify-between text-xs text-slate-300">
+              <span>مقياس رسم تصوري: 1:100</span>
+              <button onclick="createSampleAndOpenEditor()" class="text-sky-400 hover:text-sky-300 font-bold">افتح هذا النموذج في المحرر ←</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="project-types" class="max-w-7xl mx-auto px-4 sm:px-6 py-12">
+      <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-7">
+        <div>
+          <span class="text-xs font-bold text-blueprint-600 dark:text-sky-400 uppercase">تعدد الاستخدامات</span>
+          <h2 class="text-2xl sm:text-3xl font-extrabold text-blueprint-950 dark:text-white mt-1">أنواع المشاريع الهندسية المدعومة</h2>
+        </div>
+        <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400">اختر نوع المشروع لبدء إعداد مخططه وحساب مساحاته وكمياته.</p>
+      </div>
+      <div id="projectTypesGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"></div>
+    </section>
+
+    <section id="stages" class="bg-white dark:bg-blueprint-900/50 border-y border-slate-200 dark:border-blueprint-800 py-12">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6">
+        <div class="max-w-2xl mb-8">
+          <span class="text-xs font-bold text-emerald-600 dark:text-emerald-400">منهجية بناء تدريجية</span>
+          <h2 class="text-2xl sm:text-3xl font-extrabold text-blueprint-950 dark:text-white mt-1">مراحل تطوير منصة AI Architect</h2>
+        </div>
+        <div id="stagesGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ================= لوحة التحكم وإدارة المشاريع ================= -->
+  <section id="dashboardView" class="hidden flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-7 space-y-6">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div class="bg-white dark:bg-blueprint-900 p-4 rounded-2xl border border-slate-200 dark:border-blueprint-800 shadow-sm">
+        <div class="text-xs text-slate-500 dark:text-slate-400 font-semibold">إجمالي المشاريع المحفوظة</div>
+        <div id="statTotalProjects" class="text-2xl font-extrabold text-blueprint-900 dark:text-white mt-1">0</div>
+      </div>
+      <div class="bg-white dark:bg-blueprint-900 p-4 rounded-2xl border border-slate-200 dark:border-blueprint-800 shadow-sm">
+        <div class="text-xs text-slate-500 dark:text-slate-400 font-semibold">إجمالي مساحات الأراضي</div>
+        <div id="statTotalLandArea" class="text-2xl font-extrabold text-blueprint-700 dark:text-sky-300 mt-1">0 م²</div>
+      </div>
+      <div class="bg-white dark:bg-blueprint-900 p-4 rounded-2xl border border-slate-200 dark:border-blueprint-800 shadow-sm">
+        <div class="text-xs text-slate-500 dark:text-slate-400 font-semibold">إجمالي مساحات البناء التقديرية</div>
+        <div id="statTotalBuiltArea" class="text-2xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-1">0 م²</div>
+      </div>
+      <div class="bg-white dark:bg-blueprint-900 p-4 rounded-2xl border border-slate-200 dark:border-blueprint-800 shadow-sm">
+        <div class="text-xs text-slate-500 dark:text-slate-400 font-semibold">متوسط نسبة البناء</div>
+        <div id="statAvgCoverage" class="text-2xl font-extrabold text-amber-600 dark:text-amber-400 mt-1">0%</div>
+      </div>
+    </div>
+
+    <div class="bg-white dark:bg-blueprint-900 p-4 rounded-2xl border border-slate-200 dark:border-blueprint-800 shadow-sm flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+      <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-1">
+        <div class="relative flex-1">
+          <input id="searchInput" oninput="renderProjectsDashboard()" type="text" placeholder="ابحث باسم المشروع أو النمط المعماري..." class="w-full pr-9 pl-3 py-2 rounded-xl border border-slate-300 dark:border-blueprint-700 bg-slate-50 dark:bg-blueprint-950 text-sm focus:outline-none focus:ring-2 focus:ring-blueprint-500" />
+          <svg class="w-4 h-4 text-slate-400 absolute right-3 top-2.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        </div>
+        <select id="filterTypeSelect" onchange="renderProjectsDashboard()" class="px-3 py-2 rounded-xl border border-slate-300 dark:border-blueprint-700 bg-slate-50 dark:bg-blueprint-950 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blueprint-500">
+          <option value="ALL">جميع أنواع المشاريع (8)</option>
+        </select>
+        <select id="sortSelect" onchange="renderProjectsDashboard()" class="px-3 py-2 rounded-xl border border-slate-300 dark:border-blueprint-700 bg-slate-50 dark:bg-blueprint-950 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blueprint-500">
+          <option value="updated_desc">الترتيب: الأحدث تعديلاً</option>
+          <option value="area_desc">المساحة: الأكبر أولاً</option>
+          <option value="name_asc">الاسم: أ - ي</option>
+        </select>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2">
+        <button onclick="exportProjectsJson()" class="px-3 py-2 rounded-xl border border-slate-300 dark:border-blueprint-700 hover:bg-slate-100 dark:hover:bg-blueprint-800 text-xs font-bold transition">تصدير JSON</button>
+        <label class="px-3 py-2 rounded-xl border border-slate-300 dark:border-blueprint-700 hover:bg-slate-100 dark:hover:bg-blueprint-800 text-xs font-bold cursor-pointer transition">
+          استيراد JSON
+          <input type="file" accept=".json,application/json" onchange="importProjectsJson(event)" class="hidden" />
+        </label>
+        <button onclick="openSettingsModal()" class="px-3 py-2 rounded-xl border border-slate-300 dark:border-blueprint-700 hover:bg-slate-100 dark:hover:bg-blueprint-800 text-xs font-bold transition">إعدادات</button>
+        <button onclick="openProjectModal()" class="px-4 py-2 rounded-xl bg-blueprint-800 hover:bg-blueprint-700 dark:bg-blueprint-600 text-white text-xs sm:text-sm font-bold shadow-sm transition">+ مشروع جديد</button>
+      </div>
+    </div>
+
+    <div id="projectsGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
+
+    <div id="emptyProjectsState" class="hidden bg-white dark:bg-blueprint-900 rounded-2xl border border-dashed border-slate-300 dark:border-blueprint-700 p-10 text-center space-y-3">
+      <div class="w-12 h-12 rounded-2xl bg-blueprint-100 dark:bg-blueprint-800 text-blueprint-700 dark:text-sky-300 flex items-center justify-center mx-auto font-bold text-xl">+</div>
+      <h3 class="text-lg font-bold text-blueprint-900 dark:text-white">لا توجد مشاريع مطابقة</h3>
+      <p class="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">ابدأ بإنشاء مشروع هندسي جديد لتحديد أبعاد الأرض وعدد الطوابق والغرف ثم الانتقال إلى محرر 2D والـ AI والـ 3D والكميات.</p>
+      <button onclick="openProjectModal()" class="px-4 py-2.5 rounded-xl bg-blueprint-800 hover:bg-blueprint-700 dark:bg-blueprint-600 text-white text-sm font-bold">إنشاء أول مشروع</button>
+    </div>
+  </section>
+
+  <!-- ================= المراحل 2 و 4: محرر 2D وعارض 3D ================= -->
+  <section id="editorView" class="hidden flex-1 flex flex-col bg-slate-100 dark:bg-blueprint-950">
+    <div class="no-print bg-white dark:bg-blueprint-900 border-b border-slate-200 dark:border-blueprint-800 px-3 sm:px-6 py-2">
+      <div class="max-w-[1600px] mx-auto flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-1.5">
+          <button onclick="setEditorMode('2d')" id="mode2dBtn" class="px-3 py-1.5 rounded-lg text-xs font-extrabold bg-blueprint-800 text-white shadow-sm transition">📐 محرر 2D</button>
+          <button onclick="setEditorMode('3d')" id="mode3dBtn" class="px-3 py-1.5 rounded-lg text-xs font-extrabold bg-slate-100 dark:bg-blueprint-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-blueprint-700 transition">🧊 عرض ثلاثي الأبعاد 3D</button>
+        </div>
+
+        <div id="cadToolsBar2D" class="flex items-center gap-1 overflow-x-auto py-0.5 text-xs">
+          <button data-tool="select" onclick="setCadTool('select')" class="cad-tool-btn px-2.5 py-1.5 rounded-lg font-bold whitespace-nowrap transition">↖ تحديد/تحريك</button>
+          <button data-tool="wall" onclick="setCadTool('wall')" class="cad-tool-btn px-2.5 py-1.5 rounded-lg font-bold whitespace-nowrap transition">🧱 جدار</button>
+          <button data-tool="room" onclick="setCadTool('room')" class="cad-tool-btn px-2.5 py-1.5 rounded-lg font-bold whitespace-nowrap transition">⬜ غرفة</button>
+          <button data-tool="door" onclick="setCadTool('door')" class="cad-tool-btn px-2.5 py-1.5 rounded-lg font-bold whitespace-nowrap transition">🚪 باب</button>
+          <button data-tool="window" onclick="setCadTool('window')" class="cad-tool-btn px-2.5 py-1.5 rounded-lg font-bold whitespace-nowrap transition">🪟 نافذة</button>
+          <button data-tool="measure" onclick="setCadTool('measure')" class="cad-tool-btn px-2.5 py-1.5 rounded-lg font-bold whitespace-nowrap transition">📏 قياس</button>
+          <span class="h-4 w-px bg-slate-300 dark:bg-blueprint-700 mx-0.5"></span>
+          <button onclick="undoCad()" id="undoBtn" title="تراجع" class="px-2 py-1.5 rounded-lg font-bold bg-slate-100 dark:bg-blueprint-800 hover:bg-slate-200 dark:hover:bg-blueprint-700 disabled:opacity-40 transition">↩</button>
+          <button onclick="redoCad()" id="redoBtn" title="إعادة" class="px-2 py-1.5 rounded-lg font-bold bg-slate-100 dark:bg-blueprint-800 hover:bg-slate-200 dark:hover:bg-blueprint-700 disabled:opacity-40 transition">↪</button>
+          <button onclick="deleteSelectedCadItem()" id="deleteCadBtn" title="حذف العنصر المحدد" class="px-2.5 py-1.5 rounded-lg font-bold bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/60 disabled:opacity-40 transition">🗑 حذف</button>
+        </div>
+
+        <div id="viewer3dControlsBar" class="hidden flex items-center gap-1.5 overflow-x-auto py-0.5 text-xs">
+          <button onclick="set3dCameraMode('orbit')" id="cam3dOrbitBtn" class="px-2.5 py-1.5 rounded-lg font-bold bg-blueprint-700 text-white whitespace-nowrap">🌐 منظور خارجي</button>
+          <button onclick="set3dCameraMode('cutaway')" id="cam3dCutawayBtn" class="px-2.5 py-1.5 rounded-lg font-bold bg-slate-100 dark:bg-blueprint-800 text-slate-700 dark:text-slate-200 whitespace-nowrap">✂️ قطع معماري</button>
+          <button onclick="set3dCameraMode('walk')" id="cam3dWalkBtn" class="px-2.5 py-1.5 rounded-lg font-bold bg-slate-100 dark:bg-blueprint-800 text-slate-700 dark:text-slate-200 whitespace-nowrap">🚶 تجول داخلي</button>
+          <span class="h-4 w-px bg-slate-300 dark:bg-blueprint-700 mx-0.5"></span>
+          <button onclick="toggle3dFurniture()" id="btn3dFurniture" class="px-2.5 py-1.5 rounded-lg font-bold bg-emerald-600 text-white whitespace-nowrap">🛋 الأثاث: مفعل</button>
+          <button onclick="toggle3dLighting()" id="btn3dLighting" class="px-2.5 py-1.5 rounded-lg font-bold bg-slate-100 dark:bg-blueprint-800 text-slate-700 dark:text-slate-200 whitespace-nowrap">☀️ نهار</button>
+          <button onclick="toggle3dClay()" id="btn3dClay" class="px-2.5 py-1.5 rounded-lg font-bold bg-slate-100 dark:bg-blueprint-800 text-slate-700 dark:text-slate-200 whitespace-nowrap">🏛 مجسم أبيض</button>
+          <button onclick="export3dSnapshot()" class="px-2.5 py-1.5 rounded-lg font-bold bg-sky-600 hover:bg-sky-700 text-white whitespace-nowrap">📷 لقطة 3D</button>
+        </div>
+
+        <div id="cadFloorsBar" class="flex items-center gap-1.5 text-xs">
+          <span class="text-slate-500 dark:text-slate-400 font-semibold hidden md:inline">الطابق:</span>
+          <select id="floorSelect" onchange="switchCadFloor(parseInt(this.value, 10))" class="px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-blueprint-700 bg-slate-50 dark:bg-blueprint-950 font-bold focus:outline-none"></select>
+          <button onclick="addCadFloor()" title="إضافة طابق جديد" class="px-2 py-1.5 rounded-lg bg-blueprint-100 dark:bg-blueprint-800 text-blueprint-800 dark:text-sky-300 font-bold hover:bg-blueprint-200 dark:hover:bg-blueprint-700 transition">+ طابق</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- مساحة العمل 2D -->
+    <div id="workspace2D" class="flex-1 max-w-[1600px] w-full mx-auto p-2.5 sm:p-4 grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4 items-start">
+      <div class="lg:col-span-9 bg-[#081322] rounded-2xl border border-blueprint-800 shadow-lg overflow-hidden flex flex-col">
+        <div class="no-print px-3.5 py-2 bg-blueprint-900/95 border-b border-blueprint-800 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-200">
+          <div id="cadToolHint" class="font-semibold text-sky-300 truncate">اسحب لتحريك العناصر أو اسحب نهاية جدار لتعديل طوله.</div>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <button onclick="toggleCadOption('snapGrid')" id="optSnapGrid" class="px-2 py-1 rounded bg-blueprint-700 text-white font-semibold">التقاط الشبكة</button>
+            <button onclick="toggleCadOption('showDims')" id="optShowDims" class="px-2 py-1 rounded bg-blueprint-700 text-white font-semibold">الأبعاد</button>
+            <button onclick="toggleCadOption('ghostPrevFloor')" id="optGhostFloor" class="px-2 py-1 rounded bg-slate-800 text-slate-300 font-semibold">طيف السفلي</button>
+            <button onclick="zoomCad(1.15)" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 font-bold">+</button>
+            <span id="cadZoomLabel" class="font-mono text-[11px] w-11 text-center">100%</span>
+            <button onclick="zoomCad(0.85)" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 font-bold">-</button>
+            <button onclick="resetCadView()" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[11px] font-semibold">توسيط</button>
+            <button onclick="exportCadPng()" class="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold">PNG</button>
+          </div>
+        </div>
+
+        <div class="relative w-full h-[430px] sm:h-[540px] lg:h-[600px]">
+          <canvas id="cadCanvas" class="cad-canvas w-full h-full block"></canvas>
+          <div id="cadLiveCoords" class="no-print pointer-events-none absolute bottom-2.5 right-2.5 px-2.5 py-1 rounded-lg bg-slate-950/85 border border-blueprint-700/70 text-[11px] font-mono text-sky-300">X: 0.00m | Y: 0.00m</div>
+        </div>
+      </div>
+
+      <aside class="no-print lg:col-span-3 space-y-3">
+        <div class="bg-white dark:bg-blueprint-900 rounded-2xl border border-slate-200 dark:border-blueprint-800 p-3.5 shadow-sm space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-100 dark:border-blueprint-800 pb-2">
+            <h3 class="font-extrabold text-sm text-blueprint-900 dark:text-white">خصائص العنصر والإعدادات</h3>
+            <span id="cadSelectionBadge" class="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-blueprint-800 text-slate-600 dark:text-slate-300 font-semibold">لا يوجد تحديد</span>
+          </div>
+
+          <div id="propPanelEmpty" class="text-xs text-slate-500 dark:text-slate-400 space-y-2.5">
+            <p>اختر جداراً أو غرفة أو باباً أو نافذة على المخطط لتعديل أبعادها بدقة رقمية.</p>
+            <div class="pt-2 border-t border-slate-100 dark:border-blueprint-800 space-y-2">
+              <label class="block font-bold text-slate-700 dark:text-slate-200">نوع الغرفة عند الرسم:</label>
+              <select id="newRoomTypeSelect" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-blueprint-700 bg-slate-50 dark:bg-blueprint-950 text-xs font-bold">
+                <option value="living">صالة / معيشة</option>
+                <option value="bedroom">غرفة نوم</option>
+                <option value="kitchen">مطبخ</option>
+                <option value="bathroom">حمام</option>
+                <option value="office">مكتب / دراسة</option>
+                <option value="garage">مرآب</option>
+                <option value="storage">مستودع / مخزن</option>
+                <option value="garden">حديقة / فناء</option>
+              </select>
+              <label class="block font-bold text-slate-700 dark:text-slate-200">سماكة الجدار الجديد (متر):</label>
+              <select id="newWallThicknessSelect" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-blueprint-700 bg-slate-50 dark:bg-blueprint-950 text-xs font-bold">
+                <option value="0.20">0.20 م (20 سم - قاطع داخلي)</option>
+                <option value="0.25" selected>0.25 م (25 سم - قياسي)</option>
+                <option value="0.30">0.30 م (30 سم - جدار خارجي)</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="propPanelWall" class="hidden space-y-2.5 text-xs">
+            <div class="font-bold text-blueprint-800 dark:text-sky-300">جدار محدد</div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-slate-500 dark:text-slate-400 mb-1">الطول المحسوب (م)</label>
+                <input id="wallLengthInput" type="number" step="0.1" min="0.5" max="100" onchange="applyWallLengthFromInput()" class="w-full px-2 py-1.5 rounded-lg border border-slate-300 dark:border-blueprint-700 bg-slate-50 dark:bg-blueprint-950 font-mono font-bold" />
+              </div>
+              <div>
+                <label class="block text-slate-500 dark:text-slate-400 mb-1">السماكة (م)</label>
+                <input id="wallThicknessInput" type="number" step="0.05" min="0.1" max="0.8" onchange="updateSelectedWall()" class="w-full px-2 py-1.5 rounded-lg border border-slate-300 dark:border-blueprint-700 bg-slate-50 dark:bg-blueprint-950 font-mono font-bold" />
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-slate-500 dark:text-slate-400 mb-1">بداية X (م)</label>
+                <input id="wallX1Input" type="number" step="0.25" onchange="updateSelectedWall()" class="w-full px-2 py-1.5 rounded-lg border border-slate-300 dark:border-blueprint-700 bg-slate-50 dark:bg-blueprint-950 font-mono" />
+              </div>
+              <div>
+                <label class="block text-slate-500 dark:text-slate-400 mb-1">بداية Y (م)</label>
+                <input id="wallY1Input" type="number" step="0.25" onchange="updateSelectedWall()" class="w-full px-2 py-1.5 rounded-lg border border-slate-300 dark:border-blueprint-700 bg-slate-50 dark:bg-blueprint-950 font-mono" />
+              </div>
+              <div>
+                <label class="block text-slate-500 dark:text-slate-400 mb-1">نهاية X (م)</label>
+                <input id="wallX2Input" type="number" step="0.25" onchange="updateSelectedWall()" class="w-full px-2 py-1.5 rounded-lg border border-slate-300 dark:border-blueprint-700 bg-slate-50 dark:bg-blueprint-950 font-mono" />
+              </div>
+              <div>
+                <label class="block text-slate-500 dark:text-slate-400 mb-1">نهاية Y (م)</label>
+                <input id="wallY2Input" type="number" step="0.25" onchange="updateSelectedWall()" class="w-full px-2 py-1.5 rounded-lg border border-slate-300 dark:border-blueprint-700 bg-slate-50 dark:bg-blueprint-950 font-mono" />
+              </div>
+            </div>
+          </div>
+
+          <div id="propPanelRoom" class="hidden space-y-2.5 text-xs">
+            <div class="font-bold text-emerald-700 dark:text-emerald-400">غرفة / مساحة محددة</div>
+            <div>
+              <label class="block text-slate-500 dark:text-slate-400 mb-1">اسم الغرفة</label>
+              <input id="roomNameInput" type="text" oninput="updateSelectedRoom()" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-blueprint-700 bg-slate-50 dark:bg-blueprint-950 font-bold" />
+            </div>
+            <div>
+              <label class="block text-slate-500 dark:text-slate-400 mb-1">تصنيف الغرفة</label>
+              <select id="roomTypeInput" onchange="updateSelectedRoom()" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-blueprint-700 bg-slate-50 dark:bg-blueprint-950 font-bold">
+                <option value="living">صالة / معيشة</option>
+                <option value="bedroom">غرفة نوم</option>
+                <option value="kitchen">مطبخ</option>
+                <option value="bathroom">حمام</option>
+                <option value="office">مكتب / دراسة</option>
+                <option value="garage">مرآب</option>
+                <option value="storage">مستودع / مخزن</option>
+                <option value="garden">حديقة / فناء</option>
+              </select>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-slate-500 dark:text-slate-400 mb-1">العرض (م)</label>
+                <input id="roomWInput" type="number" step="0.25" min="0.8" max="80" onchange="updateSelectedRoom()" class="w-full px-2 py-1.5 rounded-lg border border-slate-300 dark:border-blueprint-700 bg-slate-50 dark:bg-blueprint-950 font-mono font-bold" />
+              </div>
+              <div>
+                <label class="block text-slate-500 dark:text-slate-400 mb-1">الطول (م)</label>
+                <input id="roomHInput" type="number" step="0.25" min="0.8" max="80" onchange="updateSelectedRoom()" class="w-full px-2 py-1.5 rounded-lg border border-slate-300 dark:border-blueprint-700 bg-slate-50 dark:bg-blueprint-950 font-mono font-bold" />
+              </div>
+            </div>
+            <div class="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 font-bold flex items-center justify-between">
+              <span>المساحة الداخلية:</span>
+              <span id="roomAreaReadout" class="font-mono">0.00 م²</span>
+            </div>
+          </div>
+
+          <div id="propPanelOpening" class="hidden space-y-2.5 text-xs">
+            <div id="openingTitleBadge" class="font-bold text-amber-700 dark:text-amber-400">فتحة معمارية محددة</div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-slate-500 dark:text-slate-400 mb-1">العرض (م)</label>
+                <input id="openingWidthInput" type="number" step="0.1" min="0.6" max="6" onchange="updateSelectedOpening()" class="w-full px-2 py-1.5 rounded-lg border border-slate-300 dark:border-blueprint-700 bg-slate-50 dark:bg-blueprint-950 font-mono font-bold" />
+              </div>
+              <div>
+                <label class="block text-slate-500 dark:text-slate-400 mb-1">زاوية الدوران (°)</label>
+                <input id="openingAngleInput" type="number" step="15" min="-360" max="360" onchange="updateSelectedOpening()" class="w-full px-2 py-1.5 rounded-lg border border-slate-300 dark:border-blueprint-700 bg-slate-50 dark:bg-blueprint-950 font-mono font-bold" />
+              </div>
+            </div>
+            <button onclick="rotateSelectedOpening90()" class="w-full py-1.5 rounded-lg bg-slate-100 dark:bg-blueprint-800 hover:bg-slate-200 dark:hover:bg-blueprint-700 font-bold transition">↻ تدوير 90°</button>
+          </div>
+        </div>
+
+        <div class="bg-white dark:bg-blueprint-900 rounded-2xl border border-slate-200 dark:border-blueprint-800 p-3.5 shadow-sm space-y-2 text-xs">
+          <div class="flex items-center justify-between">
+            <h4 class="font-extrabold text-blueprint-900 dark:text-white">ملخص الطابق الحالي</h4>
+            <button onclick="openReportModal('boq')" class="text-amber-600 dark:text-amber-400 font-bold hover:underline">حصر الكميات ←</button>
+          </div>
+          <div class="flex justify-between py-1 border-b border-slate-100 dark:border-blueprint-800">
+            <span class="text-slate-500 dark:text-slate-400">عدد الغرف:</span>
+            <span id="cadSummaryRooms" class="font-mono font-bold">0</span>
+          </div>
+          <div class="flex justify-between py-1 border-b border-slate-100 dark:border-blueprint-800">
+            <span class="text-slate-500 dark:text-slate-400">مجموع مساحات الغرف:</span>
+            <span id="cadSummaryArea" class="font-mono font-bold text-emerald-600 dark:text-emerald-400">0.00 م²</span>
+          </div>
+          <div class="flex justify-between py-1">
+            <span class="text-slate-500 dark:text-slate-400">أطوال الجدران:</span>
+            <span id="cadSummaryWallsLen" class="font-mono font-bold text-blueprint-700 dark:text-sky-300">0.00 م</span>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- مساحة العمل ثلاثية الأبعاد 3D -->
+    <div id="workspace3D" class="hidden flex-1 max-w-[1600px] w-full mx-auto p-2.5 sm:p-4 space-y-3">
+      <div class="bg-[#07111e] rounded-2xl border border-blueprint-800 shadow-xl overflow-hidden">
+        <div class="no-print px-4 py-2.5 bg-blueprint-900/95 border-b border-blueprint-800 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-200">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-sky-400"></span>
+            <span class="font-bold">عارض المجسمات المعمارية ثلاثي الأبعاد (Three.js)</span>
+            <span id="viewer3dStatusHint" class="text-slate-400 hidden sm:inline">— اسحب للتدوير، قرّب/بعّد بالعجلة أو الإصبعين</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <label class="flex items-center gap-1.5 text-slate-300">
+              <span>نطاق العرض:</span>
+              <select id="viewer3dScopeSelect" onchange="rebuild3DScene()" class="px-2 py-1 rounded bg-blueprint-800 border border-blueprint-700 text-white font-bold">
+                <option value="all">جميع الطوابق (مبنى كامل)</option>
+                <option value="current">الطابق الحالي فقط</option>
+              </select>
+            </label>
+            <button onclick="reset3dCamera()" class="px-2.5 py-1 rounded bg-blueprint-800 hover:bg-blueprint-700 text-sky-300 font-bold">إعادة ضبط الكاميرا</button>
+          </div>
+        </div>
+
+        <div class="relative w-full h-[460px] sm:h-[560px] lg:h-[620px]">
+          <div id="threeContainer" class="w-full h-full"></div>
+
+          <div id="walkControlsPad" class="no-print hidden absolute bottom-4 left-4 z-10 bg-slate-950/80 backdrop-blur border border-blueprint-700 p-2.5 rounded-2xl text-white select-none">
+            <div class="text-[10px] text-center text-sky-300 font-bold mb-1.5">تحرك داخلي (WASD / أسهم)</div>
+            <div class="grid grid-cols-3 gap-1 w-28 mx-auto text-xs font-bold">
+              <div></div>
+              <button onmousedown="setWalkDir('forward',1)" onmouseup="setWalkDir('forward',0)" onmouseleave="setWalkDir('forward',0)" ontouchstart="event.preventDefault();setWalkDir('forward',1)" ontouchend="setWalkDir('forward',0)" class="py-1.5 rounded bg-blueprint-800 active:bg-sky-600">▲</button>
+              <div></div>
+              <button onmousedown="setWalkDir('turn',1)" onmouseup="setWalkDir('turn',0)" onmouseleave="setWalkDir('turn',0)" ontouchstart="event.preventDefault();setWalkDir('turn',1)" ontouchend="setWalkDir('turn',0)" class="py-1.5 rounded bg-blueprint-800 active:bg-sky-600">↺</button>
+              <button onmousedown="setWalkDir('forward',-1)" onmouseup="setWalkDir('forward',0)" onmouseleave="setWalkDir('forward',0)" ontouchstart="event.preventDefault();setWalkDir('forward',-1)" ontouchend="setWalkDir('forward',0)" class="py-1.5 rounded bg-blueprint-800 active:bg-sky-600">▼</button>
+              <button onmousedown="setWalkDir('turn',-1)" onmouseup="setWalkDir('turn',0)" onmouseleave="setWalkDir('turn',0)" ontouchstart="event.preventDefault();setWalkDir('turn',-1)" ontouchend="setWalkDir('turn',0)" class="py-1.5 rounded bg-blueprint-800 active:bg-sky-600">↻</button>
+            </div>
+          </div>
+
+          <div class="no-print pointer-events-none absolute bottom-3 right-3 px-3 py-1.5 rounded-xl bg-slate-950/80 border border-blueprint-800 text-[11px] text-slate-300 flex flex-wrap items-center gap-3">
+            <span><i class="inline-block w-2.5 h-2.5 rounded-sm bg-[#d8b48a] ml-1"></i>باركيه</span>
+            <span><i class="inline-block w-2.5 h-2.5 rounded-sm bg-[#e2e8f0] ml-1"></i>رخام/سيراميك</span>
+            <span><i class="inline-block w-2.5 h-2.5 rounded-sm bg-[#86efac] ml-1"></i>حديقة</span>
+            <span><i class="inline-block w-2.5 h-2.5 rounded-sm bg-[#64748b] ml-1"></i>مرآب</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= المرحلة الثالثة: مولّد المخططات بالذكاء الاصطناعي ================= -->
+  <div id="aiGeneratorModal" class="no-print hidden fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="bg-white dark:bg-blueprint-900 w-full max-w-4xl rounded-2xl border border-slate-200 dark:border-blueprint-700 shadow-2xl overflow-hidden my-auto">
+      <div class="px-5 py-4 bg-gradient-to-l from-indigo-900 to-blueprint-900 text-white flex items-center justify-between">
+        <div>
+          <h3 class="font-extrabold text-base sm:text-lg">✨ مولّد المخططات المعمارية الذكي (AI Architect Generator)</h3>
+          <p class="text-xs text-indigo-200">يعمل مجاناً وفورياً بالمحرك الخوارزمي المحلي دون مفتاح، مع دعم اختياري لـ Google Gemini API</p>
+        </div>
+        <button onclick="closeAiGeneratorModal()" class="text-slate-300 hover:text-white text-xl font-bold px-2">✕</button>
+      </div>
+
+      <div class="p-4 sm:p-5 grid grid-cols-1 lg:grid-cols-12 gap-4 max-h-[82vh] overflow-y-auto">
+        <div class="lg:col-span-7 space-y-3.5 text-xs sm:text-sm">
+          <div class="grid grid-cols-2 gap-2 bg-slate-100 dark:bg-blueprint-950 p-1 rounded-xl border border-slate-200 dark:border-blueprint-800">
+            <button type="button" onclick="setAiEngineMode('local')" id="aiModeLocalBtn" class="py-2 rounded-lg font-extrabold bg-indigo-600 text-white shadow-xs transition">⚡ محرك محلي فوري (مجاني 100%)</button>
+            <button type="button" onclick="setAiEngineMode('gemini')" id="aiModeGeminiBtn" class="py-2 rounded-lg font-extrabold text-slate-600 dark:text-slate-300 transition">🌐 Google Gemini API (اختياري)</button>
+          </div>
+
+          <div id="geminiConfigBox" class="hidden p-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 space-y-2 text-xs">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-indigo-900 dark:text-indigo-200">مفتاح Gemini API (يحفظ محلياً في متصفحك فقط)</span>
+              <span id="geminiKeyStatus" class="text-[11px] font-semibold text-indigo-600 dark:text-indigo-300">غير مضبوط</span>
+            </div>
+            <div class="flex gap-2">
+              <input id="geminiApiKeyInput" type="password" placeholder="AIzaSy..." class="flex-1 px-2.5 py-1.5 rounded-lg border border-indigo-300 dark:border-indigo-700 bg-white dark:bg-blueprint-950 font-mono text-xs" />
+              <button type="button" onclick="saveGeminiKey()" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold">حفظ المفتاح</button>
+            </div>
+            <p class="text-[11px] text-indigo-700 dark:text-indigo-300 leading-relaxed">
+              ملاحظة: إذا لم يُدخل مفتاح أو تعذّر الاتصال بالشبكة، ينتقل النظام تلقائياً إلى المحرك الخوارزمي المحلي دون أي تعطل.
+            </p>
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="block font-bold text-xs text-slate-700 dark:text-slate-200">وصف سريع باللغة الطبيعية (عربي / إنجليزي / فرنسي)</label>
+            <div class="flex gap-2">
+              <input id="aiPromptText" type="text" placeholder="مثال: فيلا حديثة أرض 18 في 14 طابقين 4 غرف نوم ومطبخ وحمامين ومرآب وحديقة" class="flex-1 px-3 py-2 rounded-xl border border-slate-300 dark:border-blueprint-700 bg-slate-50 dark:bg-blueprint-950 text-xs sm:text-sm" />
+              <button type="button" onclick="parseNaturalPrompt()" class="px-3 py-2 rounded-xl bg-slate-800 dark:bg-blueprint-700 hover:bg-slate-700 text-white text-xs font-bold shrink-0">تحليل النص</button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+            <div>
+              <label class="block font-bold mb-1">طول الأرض (م)</label>
+              <input id="aiLandLen" type="number" step="0.5" min="6" max="80" value="16" class="w-full px-2.5 py-1.5 rounded-xl border border-slate-300 dark:border-blueprint-700 bg-slate-50 dark:bg-blueprint-950 font-mono font-bold" />
+            </div>
+            <div>
+              <label class="block font-bold mb-1">عرض الأرض (م)</label>
+              <input id="aiLandWid" type="number" step="0.5" min="6" max="80" value="12" class="w-full px-2.5 py-1.5 rounded-xl border border-slate-300 dark:border-blueprint-700 bg-slate-50 dark:bg-blueprint-950 font-mono font-bold" />
+            </div>
+            <div>
+              <label class="block font-bold mb-1">عدد الطوابق</label>
+              <input id="aiFloors" type="number" min="1" max="5" value="2" class="w-full px-2.5 py-1.5 rounded-xl border border-slate-300 dark:border-blueprint-700 bg-slate-50 dark:bg-blueprint-950 font-mono font-bold" />
+            </div>
+            <div>
+              <label class="block font-bold mb-1">غرف النوم</label>
+              <input id="aiBedrooms" type="number" min="0" max="8" value="3" class="w-full px-2.5 py-1.5 rounded-xl border border-slate-300 dark:border-blueprint-700 bg-slate-50 dark:bg-blueprint-950 font-mono font-bold" />
+            </div>
+            <div>
+              <label class="block font-bold mb-1">الحمامات</label>
+              <input id="aiBathrooms" type="number" min="0" max="6" value="2" class="w-full px-2.5 py-1.5 rounded-xl border border-slate-300 dark:border-blueprint-700 bg-slate-50 dark:bg-blueprint-950 font-mono font-bold" />
+            </div>
+            <div>
+              <label class="block font-bold mb-1">النمط التصميمي</label>
+              <select id="aiStyle" class="w-full px-2 py-1.5 rounded-xl border border-slate-300 dark:border-blueprint-700 bg-slate-50 dark:bg-blueprint-950 font-bold">
+                <option value="حديث">حديث (Modern)</option>
+                <option value="كلاسيكي">كلاسيكي</option>
+                <option value="متوسطي">متوسطي</option>
+                <option value="صناعي">صناعي / عملي</option>
+              </select>
+            </div>
+            <div class="flex items-end pb-1">
+              <label class="inline-flex items-center gap-1.5 font-bold cursor-pointer">
+                <input id="aiGarage" type="checkbox" checked class="rounded text-indigo-600" />
+                <span>مرآب</span>
+              </label>
+            </div>
+            <div class="flex items-end pb-1">
+              <label class="inline-flex items-center gap-1.5 font-bold cursor-pointer">
+                <input id="aiGarden" type="checkbox" checked class="rounded text-indigo-600" />
+                <span>حديقة</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2 pt-1">
+            <button type="button" onclick="runAiPlanGeneration()" id="generateAiPlanBtn" class="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-sm shadow-md transition">⚙️ توليد المخطط الآن</button>
+            <button type="button" onclick="applyGeneratedAiPlan()" id="applyAiPlanBtn" disabled class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-extrabold text-sm shadow-md transition">✓ اعتماد في المحرر</button>
+          </div>
+          <p id="aiStatusMessage" class="text-xs text-slate-500 dark:text-slate-400 font-semibold"></p>
+        </div>
+
+        <div class="lg:col-span-5 bg-[#081322] rounded-2xl border border-blueprint-800 p-3 flex flex-col justify-between text-white">
+          <div>
+            <div class="flex items-center justify-between text-xs mb-2">
+              <span class="font-bold text-sky-300">معاينة فورية للمخطط المولّد</span>
+              <span id="aiPreviewStats" class="font-mono text-[11px] text-slate-400">بانتظار التوليد</span>
+            </div>
+            <canvas id="aiPreviewCanvas" width="420" height="300" class="w-full h-64 rounded-xl bg-[#0a192f] border border-blueprint-700/60"></canvas>
+          </div>
+          <div id="aiRoomsBreakdown" class="mt-2.5 text-[11px] text-slate-300 max-h-28 overflow-y-auto space-y-1"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= المراحل 5 و 6: حصر الكميات وتصدير PDF والطباعة ================= -->
+  <div id="reportModal" class="no-print hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="bg-white dark:bg-blueprint-900 w-full max-w-5xl rounded-2xl border border-slate-200 dark:border-blueprint-700 shadow-2xl overflow-hidden my-auto">
+      <div class="px-5 py-3.5 bg-blueprint-900 text-white flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+          <button onclick="switchReportTab('boq')" id="tabBoqBtn" class="px-3 py-1.5 rounded-lg text-xs font-extrabold bg-amber-600 text-white">📊 المساحات والكميات (BOQ)</button>
+          <button onclick="switchReportTab('pdf')" id="tabPdfBtn" class="px-3 py-1.5 rounded-lg text-xs font-extrabold bg-blueprint-800 text-slate-200 hover:bg-blueprint-700">📄 تقرير PDF وطباعة</button>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="triggerPrintReport()" class="px-3.5 py-1.5 rounded-lg text-xs font-extrabold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">🖨️ طباعة / حفظ PDF</button>
+          <button onclick="closeReportModal()" class="text-slate-300 hover:text-white text-xl font-bold px-2">✕</button>
+        </div>
+      </div>
+
+      <div class="p-4 sm:p-6 max-h-[82vh] overflow-y-auto space-y-5 text-xs sm:text-sm">
+        <div class="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-xs leading-relaxed">
+          <strong>إشعار هندسي إلزامي:</strong> جميع جداول المساحات، أطوال الجدران، وتقديرات مواد البناء هي حسابات استرشادية أولية مبنية على المعطيات المدخلة ومعاملات تقديرية، ولا تغني عن الدراسة الإنشائية وحصر الكميات المعتمد من مهندس استشاري قبل التنفيذ.
+        </div>
+
+        <div id="reportBoqPane" class="space-y-5">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div class="p-3 rounded-xl bg-slate-50 dark:bg-blueprint-950 border border-slate-200 dark:border-blueprint-800">
+              <div class="text-[11px] text-slate-500">إجمالي مساحة الغرف</div>
+              <div id="boqTotalRoomsArea" class="text-lg font-extrabold text-emerald-600 dark:text-emerald-400 font-mono mt-0.5">0.00 م²</div>
+            </div>
+            <div class="p-3 rounded-xl bg-slate-50 dark:bg-blueprint-950 border border-slate-200 dark:border-blueprint-800">
+              <div class="text-[11px] text-slate-500">إجمالي أطوال الجدران</div>
+              <div id="boqTotalWallsLen" class="text-lg font-extrabold text-blueprint-700 dark:text-sky-300 font-mono mt-0.5">0.00 م</div>
+            </div>
+            <div class="p-3 rounded-xl bg-slate-50 dark:bg-blueprint-950 border border-slate-200 dark:border-blueprint-800">
+              <div class="text-[11px] text-slate-500">أبواب / نوافذ</div>
+              <div id="boqOpeningsCount" class="text-lg font-extrabold text-amber-600 dark:text-amber-400 font-mono mt-0.5">0 / 0</div>
+            </div>
+            <div class="p-3 rounded-xl bg-slate-50 dark:bg-blueprint-950 border border-slate-200 dark:border-blueprint-800">
+              <div class="text-[11px] text-slate-500">التكلفة التقديرية للمواد</div>
+              <div id="boqEstCost" class="text-lg font-extrabold text-indigo-600 dark:text-indigo-400 font-mono mt-0.5">$0</div>
+            </div>
+          </div>
+
+          <div>
+            <h4 class="font-extrabold text-blueprint-900 dark:text-white mb-2">1. جدول الغرف والمساحات حسب الطابق</h4>
+            <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-blueprint-800">
+              <table class="w-full text-right border-collapse">
+                <thead class="bg-slate-100 dark:bg-blueprint-800 text-xs">
+                  <tr>
+                    <th class="p-2.5">الطابق</th>
+                    <th class="p-2.5">اسم الغرفة</th>
+                    <th class="p-2.5">التصنيف</th>
+                    <th class="p-2.5">الأبعاد (م)</th>
+                    <th class="p-2.5">المساحة (م²)</th>
+                  </tr>
+                </thead>
+                <tbody id="boqRoomsTableBody" class="divide-y divide-slate-100 dark:divide-blueprint-800 text-xs"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div>
+            <h4 class="font-extrabold text-blueprint-900 dark:text-white mb-2">2. تقدير أولي لكميات مواد البناء الأساسية (شامل نسبة هدر 10%)</h4>
+            <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-blueprint-800">
+              <table class="w-full text-right border-collapse">
+                <thead class="bg-slate-100 dark:bg-blueprint-800 text-xs">
+                  <tr>
+                    <th class="p-2.5">البند / المادة</th>
+                    <th class="p-2.5">الكمية التقديرية</th>
+                    <th class="p-2.5">الوحدة</th>
+                    <th class="p-2.5">ملاحظة هندسية</th>
+                  </tr>
+                </thead>
+                <tbody id="boqMaterialsTableBody" class="divide-y divide-slate-100 dark:divide-blueprint-800 text-xs"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div id="reportPdfPane" class="hidden space-y-4">
+          <div class="p-4 rounded-xl bg-slate-50 dark:bg-blueprint-950 border border-slate-200 dark:border-blueprint-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h4 class="font-extrabold text-blueprint-900 dark:text-white">تقرير المخطط الهندسي المطبوع (PDF Print Sheet)</h4>
+              <p class="text-xs text-slate-500 dark:text-slate-400">يتم تجهيز لوحة المخطط الحالي وجدول الغرف والكميات لطباعتها أو حفظها كملف PDF عبر نافذة الطباعة في المتصفح.</p>
+            </div>
+            <button onclick="triggerPrintReport()" class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shrink-0">تنفيذ الطباعة / حفظ PDF</button>
+          </div>
+          <div id="pdfPreviewBox" class="p-4 rounded-xl border border-slate-300 dark:border-blueprint-700 bg-white text-slate-900 space-y-3"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= نافذة إنشاء/تعديل مشروع ================= -->
+  <div id="projectModal" class="no-print hidden fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-blueprint-900 w-full max-w-xl rounded-2xl border border-slate-200 dark:border-blueprint-700 shadow-2xl overflow-hidden">
+      <div class="px-5 py-4 bg-blueprint-900 text-white flex items-center justify-between">
+        <h3 id="projectModalTitle" class="font-extrabold text-base sm:text-lg">إنشاء مشروع هندسي جديد</h3>
+        <button onclick="closeProjectModal()" class="text-slate-300 hover:text-white text-xl font-bold leading-none">✕</button>
+      </div>
+      <form id="projectForm" onsubmit="handleProjectSubmit(event)" class="p-5 space-y-4 text-sm">
+        <input type="hidden" id="editingProjectId" />
+        <div>
+          <label class="block font-bold mb-1 text-xs text-slate-700 dark:text-slate-200">اسم المشروع *</label>
+          <input id="projName" required type="text" placeholder="مثال: فيلا الياسمين - الطابق الأرضي" class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-blueprint-700 bg-slate-50 dark:bg-blueprint-950 focus:outline-none focus:ring-2 focus:ring-blueprint-500" />
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-bold mb-1 text-xs text-slate-700 dark:text-slate-200">نوع المشروع</label>
+            <select id="projType" class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-blueprint-700 bg-slate-50 dark:bg-blueprint-950 font-semibold"></select>
+          </div>
+          <div>
+            <label class="block font-bold mb-1 text-xs text-slate-700 dark:text-slate-200">النمط التصميمي</label>
+            <select id="projStyle" class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-blueprint-700 bg-slate-50 dark:bg-blueprint-950 font-semibold">
+              <option value="حديث">حديث (Modern)</option>
+              <option value="كلاسيكي">كلاسيكي</option>
+              <option value="متوسطي">متوسطي</option>
+              <option value="صناعي">صناعي / عملي</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-cols-3 gap-3">
+          <div>
+            <label class="block font-bold mb-1 text-xs text-slate-700 dark:text-slate-200">طول الأرض (م) *</label>
+            <input id="projLength" required type="number" step="0.5" min="4" max="200" value="15" oninput="recalcModalArea()" class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-blueprint-700 bg-slate-50 dark:bg-blueprint-950 font-mono" />
+          </div>
+          <div>
+            <label class="block font-bold mb-1 text-xs text-slate-700 dark:text-slate-200">عرض الأرض (م) *</label>
+            <input id="projWidth" required type="number" step="0.5" min="4" max="200" value="12" oninput="recalcModalArea()" class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-blueprint-700 bg-slate-50 dark:bg-blueprint-950 font-mono" />
+          </div>
+          <div>
+            <label class="block font-bold mb-1 text-xs text-slate-700 dark:text-slate-200">عدد الطوابق</label>
+            <input id="projFloors" required type="number" min="1" max="30" value="1" oninput="recalcModalArea()" class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-blueprint-700 bg-slate-50 dark:bg-blueprint-950 font-mono" />
+          </div>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div>
+            <label class="block font-bold mb-1 text-xs text-slate-700 dark:text-slate-200">غرف النوم</label>
+            <input id="projBedrooms" type="number" min="0" max="30" value="3" class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-blueprint-700 bg-slate-50 dark:bg-blueprint-950 font-mono" />
+          </div>
+          <div>
+            <label class="block font-bold mb-1 text-xs text-slate-700 dark:text-slate-200">الحمامات</label>
+            <input id="projBathrooms" type="number" min="0" max="20" value="2" class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-blueprint-700 bg-slate-50 dark:bg-blueprint-950 font-mono" />
+          </div>
+          <div class="flex items-end pb-2">
+            <label class="inline-flex items-center gap-2 text-xs font-bold cursor-pointer">
+              <input id="projGarage" type="checkbox" checked class="rounded text-blueprint-600 focus:ring-blueprint-500" />
+              <span>مرآب</span>
+            </label>
+          </div>
+          <div class="flex items-end pb-2">
+            <label class="inline-flex items-center gap-2 text-xs font-bold cursor-pointer">
+              <input id="projGarden" type="checkbox" checked class="rounded text-blueprint-600 focus:ring-blueprint-500" />
+              <span>حديقة</span>
+            </label>
+          </div>
+        </div>
+        <div class="p-3 rounded-xl bg-blueprint-100/70 dark:bg-blueprint-800/70 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <span>مساحة الأرض: <strong id="calcLandArea" class="font-mono">180.0 م²</strong></span>
+          <span>مساحة البناء التقديرية (70% × الطوابق): <strong id="calcBuiltArea" class="font-mono text-emerald-700 dark:text-emerald-300">126.0 م²</strong></span>
+        </div>
+        <div>
+          <label class="block font-bold mb-1 text-xs text-slate-700 dark:text-slate-200">ملاحظات أولية</label>
+          <textarea id="projNotes" rows="2" placeholder="مثال: واجهة جنوبية، مدخل جانبي، مطبخ مفتوح..." class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-blueprint-700 bg-slate-50 dark:bg-blueprint-950 text-xs"></textarea>
+        </div>
+        <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-blueprint-800">
+          <button type="button" onclick="closeProjectModal()" class="px-4 py-2 rounded-xl border border-slate-300 dark:border-blueprint-700 text-xs font-bold">إلغاء</button>
+          <button type="submit" class="px-5 py-2 rounded-xl bg-blueprint-800 hover:bg-blueprint-700 dark:bg-blueprint-600 text-white text-xs font-bold shadow-sm">حفظ المشروع</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- نافذة الإعدادات -->
+  <div id="settingsModal" class="no-print hidden fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-blueprint-900 w-full max-w-md rounded-2xl border border-slate-200 dark:border-blueprint-700 shadow-2xl overflow-hidden">
+      <div class="px-5 py-4 bg-blueprint-900 text-white flex items-center justify-between">
+        <h3 class="font-extrabold text-base">إعدادات المنصة والمعايير</h3>
+        <button onclick="closeSettingsModal()" class="text-slate-300 hover:text-white text-xl font-bold">✕</button>
+      </div>
+      <div class="p-5 space-y-4 text-sm">
+        <div>
+          <label class="block font-bold mb-1 text-xs">نسبة البناء الافتراضية من الأرض (%)</label>
+          <input id="settingCoverageRatio" type="number" min="20" max="100" step="5" value="70" class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-blueprint-700 bg-slate-50 dark:bg-blueprint-950 font-mono" />
+        </div>
+        <div>
+          <label class="block font-bold mb-1 text-xs">اسم المكتب / المصمم الافتراضي (للتقارير)</label>
+          <input id="settingDesignerName" type="text" placeholder="مثال: مكتب الألواني للتصميم" class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-blueprint-700 bg-slate-50 dark:bg-blueprint-950 text-xs" />
+        </div>
+        <div class="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-blueprint-800">
+          <button type="button" onclick="resetDemoData()" class="text-xs font-bold text-rose-600 dark:text-rose-400 hover:underline">استعادة المشاريع الافتراضية</button>
+          <div class="flex gap-2">
+            <button type="button" onclick="closeSettingsModal()" class="px-3.5 py-2 rounded-xl border border-slate-300 dark:border-blueprint-700 text-xs font-bold">إغلاق</button>
+            <button type="button" onclick="saveSettings()" class="px-4 py-2 rounded-xl bg-blueprint-800 dark:bg-blueprint-600 text-white text-xs font-bold">حفظ</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- نافذة إخلاء المسؤولية -->
+  <div id="disclaimerModal" class="no-print hidden fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-blueprint-900 w-full max-w-lg rounded-2xl border border-slate-200 dark:border-blueprint-700 shadow-2xl overflow-hidden">
+      <div class="px-5 py-4 bg-blueprint-900 text-white flex items-center justify-between">
+        <h3 class="font-extrabold text-base">الفصل بين المخططات التصورية والمخططات المعتمدة</h3>
+        <button onclick="closeDisclaimerModal()" class="text-slate-300 hover:text-white text-xl font-bold">✕</button>
+      </div>
+      <div class="p-5 space-y-3 text-xs sm:text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+        <p>تهدف منصة <strong>AI Architect</strong> إلى تسهيل التخطيط المعماري الأولي واستكشاف الأفكار وتقدير المساحات والكميات الاسترشادية للمبتدئين والمهتمين.</p>
+        <ul class="list-disc pr-5 space-y-1.5">
+          <li><strong>المخططات التصورية:</strong> هي مسودات أولية لتوزيع الفراغات والكتل ولا تأخذ في الاعتبار جميع اشتراطات التربة والزلازل والكود المحلي.</li>
+          <li><strong>الاعتماد الهندسي:</strong> لا تُعد المخططات الإنشائية أو الكهربائية أو الصحية صالحة للتنفيذ الفعلي دون مراجعة وتوقيع مهندس مختص معتمد.</li>
+        </ul>
+        <div class="pt-3 flex justify-end">
+          <button onclick="closeDisclaimerModal()" class="px-4 py-2 rounded-xl bg-blueprint-800 dark:bg-blueprint-600 text-white text-xs font-bold">فهمت ذلك</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- حاوية الطباعة وتصدير PDF -->
+  <div id="printReportRoot" class="hidden"></div>
+
+  <footer class="no-print bg-white dark:bg-blueprint-900 border-t border-slate-200 dark:border-blueprint-800 py-5 text-xs text-slate-500 dark:text-slate-400">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-2">
+      <div><strong>AI Architect</strong> – منصة التصميم الهندسي الذكي • مراحل 1 إلى 7 مكتملة (2D + AI + 3D + BOQ + PDF).</div>
+      <div>العربية (RTL) • جاهزة للتوسع إلى الإنجليزية والفرنسية</div>
+    </div>
+  </footer>
+
+  <script>
+    const STORAGE_KEYS = {
+      PROJECTS: 'ai_architect_projects_v1',
+      SETTINGS: 'ai_architect_settings_v1',
+      THEME: 'ai_architect_theme_v1',
+      GEMINI_KEY: 'ai_architect_gemini_key_v1'
+    };
+
+    const PROJECT_TYPES = [
+      { id: 'house', name: 'منزل سكني', desc: 'تصميم مساكن عائلية بتوزيع عملي للغرف والخدمات.', icon: '🏠' },
+      { id: 'villa', name: 'فيلا', desc: 'مساحات أوسع مع ارتدادات وحديقة وواجهات متعددة.', icon: '🏡' },
+      { id: 'apartment', name: 'شقة', desc: 'استغلال ذكي للمساحات الداخلية والممرات والتهوية.', icon: '🏢' },
+      { id: 'building', name: 'عمارة', desc: 'مبانٍ متعددة الطوابق أو الوحدات مع مراعاة الحركة.', icon: '🏬' },
+      { id: 'shop', name: 'محل تجاري', desc: 'واجهات عرض واضحة ومسارات حركة للزبائن والتخزين.', icon: '🛍️' },
+      { id: 'office', name: 'مكتب', desc: 'مساحات عمل، غرف اجتماعات، واستقبال منظم.', icon: '💼' },
+      { id: 'warehouse', name: 'مستودع', desc: 'فضاءات تخزين واسعة وممرات مناولة وتحميل.', icon: '🏭' },
+      { id: 'industrial', name: 'مشروع صناعي', desc: 'تخطيط أولي للخطوط والخدمات والمنشآت المساندة.', icon: '⚙️' }
+    ];
+
+    const STAGES_INFO = [
+      { stage: 'المرحلة 1', title: 'الواجهة ولوحة التحكم', status: 'مكتملة', desc: 'واجهة RTL متجاوبة، معاينة حية، وإدارة كاملة للمشاريع.' },
+      { stage: 'المرحلة 2', title: 'محرر المخططات 2D', status: 'مكتملة', desc: 'جدران، غرف، أبواب، نوافذ، قياس، تراجع، وطوابق متعددة.' },
+      { stage: 'المرحلة 3', title: 'التصميم بالذكاء الاصطناعي', status: 'مكتملة', desc: 'محرك محلي مجاني فوري + دعم اختياري لـ Google Gemini API.' },
+      { stage: 'المرحلة 4', title: 'العرض ثلاثي الأبعاد 3D', status: 'مكتملة', desc: 'مجسم Three.js حي مع فتحات الأبواب والنوافذ والأثاث والتجول.' },
+      { stage: 'المرحلة 5', title: 'تصدير PDF والطباعة', status: 'مكتملة', desc: 'تجهيز لوحة مخطط وتقرير مطبوع جاهز للحفظ بصيغة PDF.' },
+      { stage: 'المرحلة 6', title: 'المساحات والكميات', status: 'مكتملة', desc: 'حساب المساحات وأطوال الجدران وجدول الغرف وتقدير المواد.' },
+      { stage: 'المرحلة 7', title: 'الاختبار والتحسين', status: 'مكتملة', desc: 'تم اختبار الوظائف ومعالجة التخطيط المتجاوب للهاتف والكمبيوتر وتدقيق الحسابات.' }
+    ];
+
+    const ROOM_TYPE_META = {
+      living:   { label: 'صالة / معيشة', fill: 'rgba(56, 189, 248, 0.16)', stroke: '#38bdf8', badge: 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300', floor3d: 0xe2e8f0 },
+      bedroom:  { label: 'غرفة نوم',      fill: 'rgba(16, 185, 129, 0.16)', stroke: '#34d399', badge: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300', floor3d: 0xd8b48a },
+      kitchen:  { label: 'مطبخ',          fill: 'rgba(245, 158, 11, 0.18)', stroke: '#fbbf24', badge: 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300', floor3d: 0xcbd5e1 },
+      bathroom: { label: 'حمام',          fill: 'rgba(99, 102, 241, 0.18)', stroke: '#818cf8', badge: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300', floor3d: 0xbae6fd },
+      office:   { label: 'مكتب / دراسة',  fill: 'rgba(20, 184, 166, 0.16)', stroke: '#2dd4bf', badge: 'bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300', floor3d: 0xcab08a },
+      garage:   { label: 'مرآب',          fill: 'rgba(148, 163, 184, 0.18)', stroke: '#94a3b8', badge: 'bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-300', floor3d: 0x64748b },
+      storage:  { label: 'مستودع / مخزن', fill: 'rgba(168, 85, 247, 0.15)', stroke: '#c084fc', badge: 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300', floor3d: 0x94a3b8 },
+      garden:   { label: 'حديقة / فناء',  fill: 'rgba(34, 197, 94, 0.15)',  stroke: '#4ade80', badge: 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300', floor3d: 0x86efac }
+    };
+
+    let state = {
+      view: 'landing',
+      projects: [],
+      settings: { coverageRatio: 70, designerName: '' },
+      activeProjectId: null,
+      editorMode: '2d',
+      cad: {
+        activeFloor: 0,
+        tool: 'select',
+        snapGrid: true,
+        showDims: true,
+        ghostPrevFloor: false,
+        zoom: 42,
+        panX: 80,
+        panY: 70,
+        selected: null,
+        undoStack: [],
+        redoStack: [],
+        drag: null,
+        measureStart: null,
+        measureEnd: null,
+        pointerMeters: { x: 0, y: 0 }
+      },
+      viewer3d: {
+        initialized: false,
+        cameraMode: 'orbit',
+        furniture: true,
+        night: false,
+        clay: false,
+        walkDir: { forward: 0, turn: 0 },
+        keys: {}
+      },
+      ai: {
+        mode: 'local',
+        generatedFloors: null,
+        generatedSummary: null
+      }
+    };
+
+    function uid() {
+      return 'prj_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7);
+    }
+
+    function escapeHtml(str) {
+      return String(str || '').replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+    }
+
+    function generateDefaultFloorPlan(length, width, bedrooms = 3, bathrooms = 2, hasGarage = true, hasGarden = true, floorIndex = 0) {
+      const L = Math.max(8, Number(length) || 15);
+      const W = Math.max(8, Number(width) || 12);
+      const pad = 0.5;
+      const innerL = +(L - pad * 2).toFixed(2);
+      const innerW = +(W - pad * 2).toFixed(2);
+      const rooms = [];
+      const walls = [];
+      const openings = [];
+
+      const splitX = +(pad + innerL * 0.54).toFixed(2);
+      const splitY = +(pad + innerW * 0.56).toFixed(2);
+
+      if (floorIndex === 0) {
+        rooms.push({ id: uid(), name: 'صالة استقبال ومعيشة', type: 'living', x: pad, y: pad, w: +(splitX - pad).toFixed(2), h: +(splitY - pad).toFixed(2) });
+        rooms.push({ id: uid(), name: 'مطبخ', type: 'kitchen', x: pad, y: splitY, w: +((splitX - pad) * 0.56).toFixed(2), h: +(pad + innerW - splitY).toFixed(2) });
+        const kitW = +((splitX - pad) * 0.56).toFixed(2);
+        rooms.push({ id: uid(), name: 'حمام ضيوف', type: 'bathroom', x: +(pad + kitW).toFixed(2), y: splitY, w: +(splitX - pad - kitW).toFixed(2), h: +(pad + innerW - splitY).toFixed(2) });
+
+        const rightH = hasGarage ? +(innerW * 0.62).toFixed(2) : innerW;
+        rooms.push({ id: uid(), name: bedrooms > 0 ? 'غرفة نوم رئيسية' : 'مكتب', type: bedrooms > 0 ? 'bedroom' : 'office', x: splitX, y: pad, w: +(pad + innerL - splitX).toFixed(2), h: rightH });
+        if (hasGarage) {
+          rooms.push({ id: uid(), name: 'مرآب سيارة', type: 'garage', x: splitX, y: +(pad + rightH).toFixed(2), w: +(pad + innerL - splitX).toFixed(2), h: +(pad + innerW - (pad + rightH)).toFixed(2) });
+        }
+      } else {
+        const count = Math.max(1, Math.min(4, bedrooms));
+        const sliceW = +(innerL / count).toFixed(2);
+        const bedH = +(innerW * 0.68).toFixed(2);
+        for (let i = 0; i < count; i++) {
+          rooms.push({
+            id: uid(),
+            name: i === 0 ? 'جناح نوم رئيسي' : `غرفة نوم ${i + 1}`,
+            type: 'bedroom',
+            x: +(pad + i * sliceW).toFixed(2),
+            y: pad,
+            w: sliceW,
+            h: bedH
+          });
+        }
+        const bathCount = Math.max(1, Math.min(3, bathrooms));
+        const bathW = +(innerL / bathCount).toFixed(2);
+        for (let b = 0; b < bathCount; b++) {
+          rooms.push({
+            id: uid(),
+            name: `حمام ${b + 1}`,
+            type: 'bathroom',
+            x: +(pad + b * bathW).toFixed(2),
+            y: +(pad + bedH).toFixed(2),
+            w: bathW,
+            h: +(pad + innerW - (pad + bedH)).toFixed(2)
+          });
+        }
+      }
+
+      walls.push(
+        { id: uid(), x1: pad, y1: pad, x2: +(pad + innerL).toFixed(2), y2: pad, thickness: 0.25 },
+        { id: uid(), x1: +(pad + innerL).toFixed(2), y1: pad, x2: +(pad + innerL).toFixed(2), y2: +(pad + innerW).toFixed(2), thickness: 0.25 },
+        { id: uid(), x1: +(pad + innerL).toFixed(2), y1: +(pad + innerW).toFixed(2), x2: pad, y2: +(pad + innerW).toFixed(2), thickness: 0.25 },
+        { id: uid(), x1: pad, y1: +(pad + innerW).toFixed(2), x2: pad, y2: pad, thickness: 0.25 },
+        { id: uid(), x1: splitX, y1: pad, x2: splitX, y2: +(pad + innerW).toFixed(2), thickness: 0.2 },
+        { id: uid(), x1: pad, y1: splitY, x2: splitX, y2: splitY, thickness: 0.2 }
+      );
+
+      openings.push(
+        { id: uid(), kind: 'door', x: +(pad + (splitX - pad) * 0.5).toFixed(2), y: +(pad + innerW).toFixed(2), width: 1.0, angle: -90 },
+        { id: uid(), kind: 'door', x: splitX, y: +(pad + splitY * 0.5).toFixed(2), width: 0.9, angle: 0 },
+        { id: uid(), kind: 'window', x: +(pad + (splitX - pad) * 0.5).toFixed(2), y: pad, width: 1.8, angle: 90 },
+        { id: uid(), kind: 'window', x: +(pad + innerL).toFixed(2), y: +(pad + innerW * 0.35).toFixed(2), width: 1.6, angle: 180 }
+      );
+
+      return {
+        index: floorIndex,
+        name: floorIndex === 0 ? 'الطابق الأرضي' : `الطابق ${floorIndex}`,
+        walls,
+        rooms,
+        openings
+      };
+    }
+
+    function ensureProjectFloors(project) {
+      const fCount = Math.max(1, parseInt(project.floors, 10) || 1);
+      if (!Array.isArray(project.cadFloors) || project.cadFloors.length === 0) {
+        project.cadFloors = [];
+        for (let i = 0; i < fCount; i++) {
+          project.cadFloors.push(generateDefaultFloorPlan(project.length, project.width, project.bedrooms, project.bathrooms, project.garage, project.garden, i));
+        }
+      } else {
+        while (project.cadFloors.length < fCount) {
+          const idx = project.cadFloors.length;
+          project.cadFloors.push(generateDefaultFloorPlan(project.length, project.width, project.bedrooms, project.bathrooms, project.garage, project.garden, idx));
+        }
+      }
+      return project.cadFloors;
+    }
+
+    function getSeedProjects() {
+      const now = new Date().toISOString();
+      const p1 = {
+        id: uid(), name: 'فيلا النرجس العصرية', type: 'villa', style: 'حديث',
+        length: 18, width: 14, floors: 2, bedrooms: 4, bathrooms: 3,
+        garage: true, garden: true, notes: 'ارتداد أمامي للحديقة، صالة مفتوحة، وجناح نوم رئيسي.',
+        updatedAt: now, cadFloors: null
+      };
+      p1.cadFloors = [
+        generateDefaultFloorPlan(18, 14, 4, 3, true, true, 0),
+        generateDefaultFloorPlan(18, 14, 4, 3, true, true, 1)
+      ];
+      const p2 = {
+        id: uid(), name: 'مكتب هندسي واستشارات', type: 'office', style: 'حديث',
+        length: 14, width: 10, floors: 1, bedrooms: 2, bathrooms: 2,
+        garage: false, garden: false, notes: 'منطقة استقبال، قاعة اجتماعات، ومكاتب عمل هادئة.',
+        updatedAt: now, cadFloors: null
+      };
+      p2.cadFloors = [generateDefaultFloorPlan(14, 10, 2, 2, false, false, 0)];
+      const p3 = {
+        id: uid(), name: 'معرض ومحل تجاري رئيسي', type: 'shop', style: 'صناعي',
+        length: 16, width: 9, floors: 1, bedrooms: 0, bathrooms: 1,
+        garage: false, garden: false, notes: 'واجهة عرض واسعة ومخزن خلفي للسلع.',
+        updatedAt: now, cadFloors: null
+      };
+      p3.cadFloors = [generateDefaultFloorPlan(16, 9, 0, 1, false, false, 0)];
+      return [p1, p2, p3];
+    }
+
+    function loadState() {
+      try {
+        const savedTheme = localStorage.getItem(STORAGE_KEYS.THEME);
+        if (savedTheme === 'dark') document.documentElement.classList.add('dark');
+
+        const savedSettings = JSON.parse(localStorage.getItem(STORAGE_KEYS.SETTINGS) || 'null');
+        if (savedSettings && typeof savedSettings.coverageRatio === 'number') {
+          state.settings = { ...state.settings, ...savedSettings };
+        }
+
+        const savedProjects = JSON.parse(localStorage.getItem(STORAGE_KEYS.PROJECTS) || 'null');
+        if (Array.isArray(savedProjects) && savedProjects.length > 0) {
+          state.projects = savedProjects.map(p => {
+            ensureProjectFloors(p);
+            return p;
+          });
+        } else {
+          state.projects = getSeedProjects();
+          saveProjectsToStorage();
+        }
+
+        const savedKey = localStorage.getItem(STORAGE_KEYS.GEMINI_KEY) || '';
+        if (savedKey) {
+          const inp = document.getElementById('geminiApiKeyInput');
+          if (inp) inp.value = savedKey;
+          updateGeminiKeyBadge(true);
+        }
+      } catch (e) {
+        console.error('Error loading state:', e);
+        state.projects = getSeedProjects();
+      }
+    }
+
+    function saveProjectsToStorage() {
+      localStorage.setItem(STORAGE_KEYS.PROJECTS, JSON.stringify(state.projects));
+    }
+
+    function saveSettingsToStorage() {
+      localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(state.settings));
+    }
+
+    function toggleTheme() {
+      const isDark = document.documentElement.classList.toggle('dark');
+      localStorage.setItem(STORAGE_KEYS.THEME, isDark ? 'dark' : 'light');
+      if (state.view === 'editor' && state.editorMode === '2d') drawCadCanvas();
+    }
+
+    function toggleLangHint() {
+      alert('اللغة الحالية: العربية (RTL).\nالبنية جاهزة لإضافة الإنجليزية (EN) والفرنسية (FR) في التحديثات القادمة.');
+    }
+
+    function navigateTo(viewName, projectId = null) {
+      state.view = viewName;
+      document.getElementById('landingView').classList.toggle('hidden', viewName !== 'landing');
+      document.getElementById('dashboardView').classList.toggle('hidden', viewName !== 'dashboard');
+      document.getElementById('editorView').classList.toggle('hidden', viewName !== 'editor');
+
+      document.getElementById('landingQuickNav').classList.toggle('hidden', viewName !== 'landing');
+      document.getElementById('dashboardQuickNav').classList.toggle('hidden', viewName !== 'dashboard');
+      document.getElementById('editorQuickNav').classList.toggle('hidden', viewName !== 'editor');
+
+      if (viewName === 'dashboard') {
+        renderProjectsDashboard();
+      } else if (viewName === 'editor') {
+        const proj = state.projects.find(p => p.id === (projectId || state.activeProjectId)) || state.projects[0];
+        if (!proj) { navigateTo('dashboard'); return; }
+        openEditorForProject(proj.id);
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function initStaticSections() {
+      const typesGrid = document.getElementById('projectTypesGrid');
+      const filterSelect = document.getElementById('filterTypeSelect');
+      const modalSelect = document.getElementById('projType');
+
+      typesGrid.innerHTML = PROJECT_TYPES.map(t => `
+        <div class="bg-white dark:bg-blueprint-900 rounded-2xl border border-slate-200 dark:border-blueprint-800 p-4 hover:border-blueprint-500 dark:hover:border-sky-400 transition shadow-xs flex flex-col justify-between">
+          <div>
+            <div class="text-2xl mb-2">${t.icon}</div>
+            <h3 class="font-extrabold text-base text-blueprint-900 dark:text-white">${t.name}</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">${t.desc}</p>
+          </div>
+          <button onclick="openProjectModal(null, '${t.id}')" class="mt-4 text-xs font-bold text-blueprint-700 dark:text-sky-400 hover:underline text-right">
+            بدء مشروع ${t.name} ←
+          </button>
+        </div>
+      `).join('');
+
+      filterSelect.innerHTML = '<option value="ALL">جميع أنواع المشاريع (8)</option>' +
+        PROJECT_TYPES.map(t => `<option value="${t.id}">${t.icon} ${t.name}</option>`).join('');
+
+      modalSelect.innerHTML = PROJECT_TYPES.map(t => `<option value="${t.id}">${t.icon} ${t.name}</option>`).join('');
+
+      const stagesGrid = document.getElementById('stagesGrid');
+      stagesGrid.innerHTML = STAGES_INFO.map(s => {
+        const isDone = s.status === 'مكتملة';
+        const badgeClass = isDone
+          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+          : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300';
+        return `
+          <div class="bg-slate-50 dark:bg-blueprint-950/70 rounded-2xl border border-slate-200 dark:border-blueprint-800 p-4 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between gap-2 mb-2">
+                <span class="text-xs font-extrabold text-blueprint-700 dark:text-sky-300">${s.stage}</span>
+                <span class="text-[11px] font-bold px-2 py-0.5 rounded-full ${badgeClass}">${s.status}</span>
+              </div>
+              <h3 class="font-bold text-sm text-blueprint-900 dark:text-white">${s.title}</h3>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">${s.desc}</p>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function toggleHeroLayer(layer) {
+      if (layer === 'grid') {
+        const rect = document.getElementById('heroGridRect');
+        const hidden = rect.getAttribute('visibility') === 'hidden';
+        rect.setAttribute('visibility', hidden ? 'visible' : 'hidden');
+        document.getElementById('heroBtnGrid').classList.toggle('opacity-50', !hidden);
+      } else if (layer === 'dims') {
+        const g = document.getElementById('heroDimsLayer');
+        const hidden = g.getAttribute('visibility') === 'hidden';
+        g.setAttribute('visibility', hidden ? 'visible' : 'hidden');
+        document.getElementById('heroBtnDims').classList.toggle('opacity-50', !hidden);
+      } else if (layer === 'labels') {
+        const g = document.getElementById('heroLabelsLayer');
+        const hidden = g.getAttribute('visibility') === 'hidden';
+        g.setAttribute('visibility', hidden ? 'visible' : 'hidden');
+        document.getElementById('heroBtnLabels').classList.toggle('opacity-50', !hidden);
+      }
+    }
+
+    function createSampleAndOpenEditor() {
+      const sample = {
+        id: uid(), name: 'مخطط نموذجي - 15×10م', type: 'house', style: 'حديث',
+        length: 15, width: 10, floors: 1, bedrooms: 2, bathrooms: 1,
+        garage: true, garden: false, notes: 'مخطط تم إنشاؤه من المعاينة الرئيسية.',
+        updatedAt: new Date().toISOString(), cadFloors: null
+      };
+      sample.cadFloors = [generateDefaultFloorPlan(15, 10, 2, 1, true, false, 0)];
+      state.projects.unshift(sample);
+      saveProjectsToStorage();
+      navigateTo('editor', sample.id);
+    }
+
+    function getProjectTypeMeta(typeId) {
+      return PROJECT_TYPES.find(t => t.id === typeId) || PROJECT_TYPES[0];
+    }
+
+    function computeProjectAreas(project) {
+      const landArea = (Number(project.length) || 0) * (Number(project.width) || 0);
+      const floors = Math.max(1, Number(project.floors) || 1);
+      const coverage = (Number(state.settings.coverageRatio) || 70) / 100;
+      const builtArea = landArea * coverage * floors;
+      return { landArea, builtArea };
+    }
+
+    function buildMiniPlanSvg(project) {
+      const l = Math.max(4, Number(project.length) || 15);
+      const w = Math.max(4, Number(project.width) || 12);
+      const ratio = l / w;
+      let boxW = 180, boxH = 100;
+      if (ratio >= 1.2) { boxW = 195; boxH = Math.max(52, Math.min(105, Math.round(195 / ratio))); }
+      else { boxH = 105; boxW = Math.max(70, Math.min(205, Math.round(105 * ratio))); }
+      const x0 = Math.round((240 - boxW) / 2);
+      const y0 = Math.round((124 - boxH) / 2);
+      const splitX = x0 + Math.round(boxW * 0.55);
+      const splitY = y0 + Math.round(boxH * 0.55);
+      const roomsCount = (Number(project.bedrooms) || 0) + (Number(project.bathrooms) || 0) + 1;
+
+      return `
+        <svg viewBox="0 0 240 124" class="w-full h-28 rounded-xl bg-[#0a192f] border border-blueprint-800">
+          <rect x="6" y="6" width="228" height="112" rx="6" fill="none" stroke="rgba(125,211,252,0.14)" stroke-dasharray="3 3"/>
+          <rect x="${x0}" y="${y0}" width="${boxW}" height="${boxH}" fill="rgba(56,189,248,0.10)" stroke="#38bdf8" stroke-width="1.8"/>
+          <line x1="${splitX}" y1="${y0}" x2="${splitX}" y2="${y0 + boxH}" stroke="#93c5fd" stroke-width="1.2"/>
+          <line x1="${x0}" y1="${splitY}" x2="${splitX}" y2="${splitY}" stroke="#93c5fd" stroke-width="1.2"/>
+          <text x="120" y="${Math.max(15, y0 - 4)}" fill="#7dd3fc" font-size="9" font-family="JetBrains Mono, monospace" text-anchor="middle">${l}م × ${w}م</text>
+          <text x="120" y="${Math.min(115, y0 + boxH + 11)}" fill="#94a3b8" font-size="8.5" font-family="Cairo, sans-serif" text-anchor="middle">${project.floors} طابق • ${roomsCount} فراغات</text>
+        </svg>
+      `;
+    }
+
+    function renderProjectsDashboard() {
+      const q = (document.getElementById('searchInput').value || '').trim().toLowerCase();
+      const typeFilter = document.getElementById('filterTypeSelect').value;
+      const sortBy = document.getElementById('sortSelect').value;
+
+      let totalLand = 0, totalBuilt = 0;
+      state.projects.forEach(p => {
+        const { landArea, builtArea } = computeProjectAreas(p);
+        totalLand += landArea;
+        totalBuilt += builtArea;
+      });
+      const avgCov = totalLand > 0 ? Math.min(100, Math.round((totalBuilt / totalLand) * 100)) : 0;
+
+      document.getElementById('statTotalProjects').textContent = state.projects.length;
+      document.getElementById('statTotalLandArea').textContent = `${totalLand.toLocaleString('ar-EG', { maximumFractionDigits: 1 })} م²`;
+      document.getElementById('statTotalBuiltArea').textContent = `${totalBuilt.toLocaleString('ar-EG', { maximumFractionDigits: 1 })} م²`;
+      document.getElementById('statAvgCoverage').textContent = `${avgCov}%`;
+
+      let filtered = state.projects.filter(p => {
+        const matchesType = typeFilter === 'ALL' || p.type === typeFilter;
+        const matchesQuery = !q ||
+          (p.name || '').toLowerCase().includes(q) ||
+          (p.style || '').toLowerCase().includes(q) ||
+          (p.notes || '').toLowerCase().includes(q);
+        return matchesType && matchesQuery;
+      });
+
+      if (sortBy === 'area_desc') {
+        filtered.sort((a, b) => computeProjectAreas(b).landArea - computeProjectAreas(a).landArea);
+      } else if (sortBy === 'name_asc') {
+        filtered.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ar'));
+      } else {
+        filtered.sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
+      }
+
+      const grid = document.getElementById('projectsGrid');
+      const empty = document.getElementById('emptyProjectsState');
+
+      if (filtered.length === 0) {
+        grid.innerHTML = '';
+        empty.classList.remove('hidden');
+        return;
+      }
+      empty.classList.add('hidden');
+
+      grid.innerHTML = filtered.map(p => {
+        const tMeta = getProjectTypeMeta(p.type);
+        const { landArea, builtArea } = computeProjectAreas(p);
+        const dateStr = new Date(p.updatedAt || Date.now()).toLocaleDateString('ar-EG', { year: 'numeric', month: 'short', day: 'numeric' });
+        return `
+          <div class="bg-white dark:bg-blueprint-900 rounded-2xl border border-slate-200 dark:border-blueprint-800 p-4 shadow-sm hover:border-blueprint-500 dark:hover:border-sky-500 transition flex flex-col justify-between gap-3">
+            <div class="space-y-2.5">
+              <div class="flex items-start justify-between gap-2">
+                <div>
+                  <span class="inline-block text-[11px] font-bold px-2 py-0.5 rounded-full bg-blueprint-100 dark:bg-blueprint-800 text-blueprint-800 dark:text-sky-300 mb-1">${tMeta.icon} ${tMeta.name}</span>
+                  <h3 class="font-extrabold text-base text-blueprint-950 dark:text-white leading-snug">${escapeHtml(p.name)}</h3>
+                </div>
+                <span class="text-[11px] text-slate-400 shrink-0">${dateStr}</span>
+              </div>
+              ${buildMiniPlanSvg(p)}
+              <div class="grid grid-cols-3 gap-2 text-center bg-slate-50 dark:bg-blueprint-950/80 p-2 rounded-xl border border-slate-100 dark:border-blueprint-800 text-xs">
+                <div>
+                  <div class="text-[10px] text-slate-400">مساحة الأرض</div>
+                  <div class="font-bold font-mono text-blueprint-900 dark:text-white">${landArea.toFixed(1)} م²</div>
+                </div>
+                <div>
+                  <div class="text-[10px] text-slate-400">إجمالي البناء</div>
+                  <div class="font-bold font-mono text-emerald-600 dark:text-emerald-400">${builtArea.toFixed(1)} م²</div>
+                </div>
+                <div>
+                  <div class="text-[10px] text-slate-400">النمط</div>
+                  <div class="font-bold text-slate-700 dark:text-slate-200 truncate">${escapeHtml(p.style || 'حديث')}</div>
+                </div>
+              </div>
+              ${p.notes ? `<p class="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">${escapeHtml(p.notes)}</p>` : ''}
+            </div>
+            <div class="pt-2 border-t border-slate-100 dark:border-blueprint-800 flex items-center justify-between gap-1.5">
+              <button onclick="navigateTo('editor', '${p.id}')" class="px-3 py-1.5 rounded-lg bg-blueprint-800 hover:bg-blueprint-700 dark:bg-blueprint-600 text-white text-xs font-bold transition">فتح المحرر (2D/3D)</button>
+              <div class="flex items-center gap-1">
+                <button onclick="openProjectModal('${p.id}')" title="تعديل" class="p-1.5 rounded-lg border border-slate-200 dark:border-blueprint-700 hover:bg-slate-100 dark:hover:bg-blueprint-800 text-xs">✏️</button>
+                <button onclick="duplicateProject('${p.id}')" title="نسخ" class="p-1.5 rounded-lg border border-slate-200 dark:border-blueprint-700 hover:bg-slate-100 dark:hover:bg-blueprint-800 text-xs">📄</button>
+                <button onclick="deleteProject('${p.id}')" title="حذف" class="p-1.5 rounded-lg border border-rose-200 dark:border-rose-900/60 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 text-xs">🗑️</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function openProjectModal(projectId = null, presetType = null) {
+      const form = document.getElementById('projectForm');
+      form.reset();
+      document.getElementById('editingProjectId').value = '';
+
+      if (projectId) {
+        const p = state.projects.find(item => item.id === projectId);
+        if (!p) return;
+        document.getElementById('projectModalTitle').textContent = 'تعديل بيانات المشروع';
+        document.getElementById('editingProjectId').value = p.id;
+        document.getElementById('projName').value = p.name;
+        document.getElementById('projType').value = p.type;
+        document.getElementById('projStyle').value = p.style || 'حديث';
+        document.getElementById('projLength').value = p.length;
+        document.getElementById('projWidth').value = p.width;
+        document.getElementById('projFloors').value = p.floors;
+        document.getElementById('projBedrooms').value = p.bedrooms ?? 3;
+        document.getElementById('projBathrooms').value = p.bathrooms ?? 2;
+        document.getElementById('projGarage').checked = Boolean(p.garage);
+        document.getElementById('projGarden').checked = Boolean(p.garden);
+        document.getElementById('projNotes').value = p.notes || '';
+      } else {
+        document.getElementById('projectModalTitle').textContent = 'إنشاء مشروع هندسي جديد';
+        if (presetType) document.getElementById('projType').value = presetType;
+      }
+      recalcModalArea();
+      document.getElementById('projectModal').classList.remove('hidden');
+    }
+
+    function closeProjectModal() {
+      document.getElementById('projectModal').classList.add('hidden');
+    }
+
+    function recalcModalArea() {
+      const l = parseFloat(document.getElementById('projLength').value) || 0;
+      const w = parseFloat(document.getElementById('projWidth').value) || 0;
+      const f = Math.max(1, parseInt(document.getElementById('projFloors').value, 10) || 1);
+      const land = l * w;
+      const built = land * ((Number(state.settings.coverageRatio) || 70) / 100) * f;
+      document.getElementById('calcLandArea').textContent = `${land.toFixed(1)} م²`;
+      document.getElementById('calcBuiltArea').textContent = `${built.toFixed(1)} م²`;
+    }
+
+    function handleProjectSubmit(e) {
+      e.preventDefault();
+      const id = document.getElementById('editingProjectId').value;
+      const payload = {
+        name: document.getElementById('projName').value.trim(),
+        type: document.getElementById('projType').value,
+        style: document.getElementById('projStyle').value,
+        length: parseFloat(document.getElementById('projLength').value) || 12,
+        width: parseFloat(document.getElementById('projWidth').value) || 10,
+        floors: Math.max(1, parseInt(document.getElementById('projFloors').value, 10) || 1),
+        bedrooms: parseInt(document.getElementById('projBedrooms').value, 10) || 0,
+        bathrooms: parseInt(document.getElementById('projBathrooms').value, 10) || 0,
+        garage: document.getElementById('projGarage').checked,
+        garden: document.getElementById('projGarden').checked,
+        notes: document.getElementById('projNotes').value.trim(),
+        updatedAt: new Date().toISOString()
+      };
+
+      if (id) {
+        const idx = state.projects.findIndex(p => p.id === id);
+        if (idx !== -1) {
+          const updated = { ...state.projects[idx], ...payload };
+          ensureProjectFloors(updated);
+          state.projects[idx] = updated;
+        }
+      } else {
+        const newProj = { id: uid(), ...payload, cadFloors: null };
+        ensureProjectFloors(newProj);
+        state.projects.unshift(newProj);
+      }
+
+      saveProjectsToStorage();
+      closeProjectModal();
+      if (state.view === 'dashboard') renderProjectsDashboard();
+      if (state.view === 'editor' && state.activeProjectId === id) {
+        document.getElementById('editorProjectTitleBadge').textContent = payload.name;
+        refreshFloorSelect();
+        drawCadCanvas();
+      }
+    }
+
+    function duplicateProject(id) {
+      const src = state.projects.find(p => p.id === id);
+      if (!src) return;
+      const copy = JSON.parse(JSON.stringify(src));
+      copy.id = uid();
+      copy.name = `${src.name} (نسخة)`;
+      copy.updatedAt = new Date().toISOString();
+      state.projects.unshift(copy);
+      saveProjectsToStorage();
+      renderProjectsDashboard();
+    }
+
+    function deleteProject(id) {
+      const target = state.projects.find(p => p.id === id);
+      if (!target) return;
+      if (!confirm(`هل أنت متأكد من حذف المشروع "${target.name}"؟`)) return;
+      state.projects = state.projects.filter(p => p.id !== id);
+      saveProjectsToStorage();
+      renderProjectsDashboard();
+    }
+
+    function exportProjectsJson() {
+      const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), projects: state.projects }, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ai-architect-projects-${new Date().toISOString().slice(0,10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function importProjectsJson(event) {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const parsed = JSON.parse(reader.result);
+          const list = Array.isArray(parsed) ? parsed : (Array.isArray(parsed.projects) ? parsed.projects : null);
+          if (!list || list.length === 0) { alert('ملف JSON لا يحتوي على مشاريع صالحة.'); return; }
+          let added = 0;
+          list.forEach(item => {
+            if (item && item.name && item.length && item.width) {
+              const clean = {
+                id: uid(), name: String(item.name), type: item.type || 'house', style: item.style || 'حديث',
+                length: Number(item.length) || 12, width: Number(item.width) || 10,
+                floors: Math.max(1, parseInt(item.floors, 10) || 1), bedrooms: parseInt(item.bedrooms, 10) || 0,
+                bathrooms: parseInt(item.bathrooms, 10) || 0, garage: Boolean(item.garage), garden: Boolean(item.garden),
+                notes: String(item.notes || ''), updatedAt: new Date().toISOString(), cadFloors: Array.isArray(item.cadFloors) ? item.cadFloors : null
+              };
+              ensureProjectFloors(clean);
+              state.projects.unshift(clean);
+              added++;
+            }
+          });
+          saveProjectsToStorage();
+          renderProjectsDashboard();
+          alert(`تم استيراد ${added} مشروع بنجاح.`);
+        } catch (err) { alert('تعذر قراءة ملف JSON.'); }
+        event.target.value = '';
+      };
+      reader.readAsText(file);
+    }
+
+    function openSettingsModal() {
+      document.getElementById('settingCoverageRatio').value = state.settings.coverageRatio || 70;
+      document.getElementById('settingDesignerName').value = state.settings.designerName || '';
+      document.getElementById('settingsModal').classList.remove('hidden');
+    }
+    function closeSettingsModal() { document.getElementById('settingsModal').classList.add('hidden'); }
+    function saveSettings() {
+      const ratio = Math.min(100, Math.max(20, parseFloat(document.getElementById('settingCoverageRatio').value) || 70));
+      state.settings.coverageRatio = ratio;
+      state.settings.designerName = (document.getElementById('settingDesignerName').value || '').trim();
+      saveSettingsToStorage();
+      closeSettingsModal();
+      renderProjectsDashboard();
+    }
+    function resetDemoData() {
+      if (!confirm('سيتم استبدال المشاريع الحالية بالمشاريع النموذجية الافتراضية. هل تريد المتابعة؟')) return;
+      state.projects = getSeedProjects();
+      saveProjectsToStorage();
+      closeSettingsModal();
+      renderProjectsDashboard();
+    }
+
+    function openDisclaimerModal() { document.getElementById('disclaimerModal').classList.remove('hidden'); }
+    function closeDisclaimerModal() { document.getElementById('disclaimerModal').classList.add('hidden'); }
+
+    // ================= المحرر 2D =================
+    const TOOL_HINTS = {
+      select: 'اسحب لتحريك العناصر أو اسحب نهاية جدار لتعديل طوله، أو اختر عنصراً لتعديله من اللوحة الجانبية.',
+      wall: 'انقر واسحب على الشبكة لرسم جدار جديد مع إظهار الطول والالتقاط التلقائي.',
+      room: 'انقر واسحب لتحديد أبعاد غرفة جديدة وتسميتها وحساب مساحتها تلقائياً.',
+      door: 'انقر على جدار أو مساحة لإضافة باب معماري بقوس فتح.',
+      window: 'انقر على جدار أو مساحة لإضافة نافذة معمارية.',
+      measure: 'اسحب من نقطة إلى أخرى لقياس المسافة الأفقية والقطرية بالمتر.'
+    };
+
+    function getActiveProject() {
+      return state.projects.find(p => p.id === state.activeProjectId) || null;
+    }
+
+    function getCurrentFloorData() {
+      const proj = getActiveProject();
+      if (!proj) return null;
+      const floors = ensureProjectFloors(proj);
+      if (state.cad.activeFloor >= floors.length) state.cad.activeFloor = 0;
+      return floors[state.cad.activeFloor];
+    }
+
+    function openEditorForProject(projectId) {
+      const proj = state.projects.find(p => p.id === projectId);
+      if (!proj) return;
+      ensureProjectFloors(proj);
+      state.activeProjectId = proj.id;
+      state.cad.activeFloor = 0;
+      state.cad.selected = null;
+      state.cad.undoStack = [];
+      state.cad.redoStack = [];
+      state.cad.measureStart = null;
+      state.cad.measureEnd = null;
+
+      document.getElementById('editorProjectTitleBadge').textContent = `${proj.name} (${proj.length}×${proj.width}م)`;
+      refreshFloorSelect();
+      setCadTool('select');
+      setEditorMode(state.editorMode || '2d');
+      resetCadView();
+      syncCadPropertiesPanel();
+      updateCadSummary();
+    }
+
+    function setEditorMode(mode) {
+      state.editorMode = mode;
+      const is2d = mode === '2d';
+      document.getElementById('workspace2D').classList.toggle('hidden', !is2d);
+      document.getElementById('workspace3D').classList.toggle('hidden', is2d);
+      document.getElementById('cadToolsBar2D').classList.toggle('hidden', !is2d);
+      document.getElementById('viewer3dControlsBar').classList.toggle('hidden', is2d);
+
+      document.getElementById('mode2dBtn').className = is2d
+        ? 'px-3 py-1.5 rounded-lg text-xs font-extrabold bg-blueprint-800 text-white shadow-sm transition'
+        : 'px-3 py-1.5 rounded-lg text-xs font-extrabold bg-slate-100 dark:bg-blueprint-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-blueprint-700 transition';
+      document.getElementById('mode3dBtn').className = !is2d
+        ? 'px-3 py-1.5 rounded-lg text-xs font-extrabold bg-indigo-600 text-white shadow-sm transition'
+        : 'px-3 py-1.5 rounded-lg text-xs font-extrabold bg-slate-100 dark:bg-blueprint-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-blueprint-700 transition';
+
+      if (is2d) {
+        resizeCadCanvas();
+        drawCadCanvas();
+      } else {
+        init3DViewerIfNeeded();
+        rebuild3DScene();
+      }
+    }
+
+    function refreshFloorSelect() {
+      const proj = getActiveProject();
+      if (!proj) return;
+      ensureProjectFloors(proj);
+      const sel = document.getElementById('floorSelect');
+      sel.innerHTML = proj.cadFloors.map((f, idx) => `<option value="${idx}">${escapeHtml(f.name || `الطابق ${idx}`)}</option>`).join('');
+      sel.value = String(state.cad.activeFloor);
+    }
+
+    function switchCadFloor(idx) {
+      const proj = getActiveProject();
+      if (!proj || !proj.cadFloors[idx]) return;
+      state.cad.activeFloor = idx;
+      state.cad.selected = null;
+      syncCadPropertiesPanel();
+      updateCadSummary();
+      drawCadCanvas();
+      if (!document.getElementById('workspace3D').classList.contains('hidden')) {
+        rebuild3DScene();
+      }
+    }
+
+    function addCadFloor() {
+      const proj = getActiveProject();
+      if (!proj) return;
+      pushUndoSnapshot();
+      ensureProjectFloors(proj);
+      const nextIdx = proj.cadFloors.length;
+      const newFloor = generateDefaultFloorPlan(proj.length, proj.width, proj.bedrooms, proj.bathrooms, proj.garage, proj.garden, nextIdx);
+      proj.cadFloors.push(newFloor);
+      proj.floors = proj.cadFloors.length;
+      state.cad.activeFloor = nextIdx;
+      refreshFloorSelect();
+      saveCurrentEditorProject(false);
+      updateCadSummary();
+      drawCadCanvas();
+      if (!document.getElementById('workspace3D').classList.contains('hidden')) {
+        rebuild3DScene();
+      }
+    }
+
+    function setCadTool(tool) {
+      state.cad.tool = tool;
+      document.getElementById('cadToolHint').textContent = TOOL_HINTS[tool] || TOOL_HINTS.select;
+      document.querySelectorAll('.cad-tool-btn').forEach(btn => {
+        const active = btn.dataset.tool === tool;
+        btn.className = 'cad-tool-btn px-2.5 py-1.5 rounded-lg font-bold whitespace-nowrap transition ' +
+          (active ? 'bg-blueprint-700 text-white shadow-xs' : 'bg-slate-100 dark:bg-blueprint-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-blueprint-700');
+      });
+      drawCadCanvas();
+    }
+
+    function toggleCadOption(opt) {
+      state.cad[opt] = !state.cad[opt];
+      if (opt === 'snapGrid') {
+        document.getElementById('optSnapGrid').className = state.cad.snapGrid ? 'px-2 py-1 rounded bg-blueprint-700 text-white font-semibold' : 'px-2 py-1 rounded bg-slate-800 text-slate-400 font-semibold';
+      } else if (opt === 'showDims') {
+        document.getElementById('optShowDims').className = state.cad.showDims ? 'px-2 py-1 rounded bg-blueprint-700 text-white font-semibold' : 'px-2 py-1 rounded bg-slate-800 text-slate-400 font-semibold';
+      } else if (opt === 'ghostPrevFloor') {
+        document.getElementById('optGhostFloor').className = state.cad.ghostPrevFloor ? 'px-2 py-1 rounded bg-indigo-600 text-white font-semibold' : 'px-2 py-1 rounded bg-slate-800 text-slate-400 font-semibold';
+      }
+      drawCadCanvas();
+    }
+
+    function zoomCad(factor) {
+      state.cad.zoom = Math.min(120, Math.max(18, +(state.cad.zoom * factor).toFixed(1)));
+      document.getElementById('cadZoomLabel').textContent = `${Math.round((state.cad.zoom / 42) * 100)}%`;
+      drawCadCanvas();
+    }
+
+    function resetCadView() {
+      const proj = getActiveProject();
+      const canvas = document.getElementById('cadCanvas');
+      if (!canvas) return;
+      const w = canvas.clientWidth || 800;
+      const h = canvas.clientHeight || 550;
+      state.cad.zoom = 42;
+      const pLen = (proj?.length || 15) * state.cad.zoom;
+      const pWid = (proj?.width || 12) * state.cad.zoom;
+      state.cad.panX = Math.max(30, Math.round((w - pLen) / 2));
+      state.cad.panY = Math.max(30, Math.round((h - pWid) / 2));
+      document.getElementById('cadZoomLabel').textContent = '100%';
+      drawCadCanvas();
+    }
+
+    function snapMeters(val) {
+      if (!state.cad.snapGrid) return +val.toFixed(2);
+      return +(Math.round(val / 0.25) * 0.25).toFixed(2);
+    }
+
+    function screenToMeters(px, py) {
+      return {
+        x: (px - state.cad.panX) / state.cad.zoom,
+        y: (py - state.cad.panY) / state.cad.zoom
+      };
+    }
+
+    function metersToScreen(mx, my) {
+      return {
+        x: state.cad.panX + mx * state.cad.zoom,
+        y: state.cad.panY + my * state.cad.zoom
+      };
+    }
+
+    function pushUndoSnapshot() {
+      const floor = getCurrentFloorData();
+      if (!floor) return;
+      state.cad.undoStack.push(JSON.stringify(floor));
+      if (state.cad.undoStack.length > 35) state.cad.undoStack.shift();
+      state.cad.redoStack = [];
+      updateUndoRedoButtons();
+    }
+
+    function undoCad() {
+      const floor = getCurrentFloorData();
+      if (!floor || state.cad.undoStack.length === 0) return;
+      state.cad.redoStack.push(JSON.stringify(floor));
+      const prev = JSON.parse(state.cad.undoStack.pop());
+      floor.walls = prev.walls || [];
+      floor.rooms = prev.rooms || [];
+      floor.openings = prev.openings || [];
+      state.cad.selected = null;
+      updateUndoRedoButtons();
+      syncCadPropertiesPanel();
+      updateCadSummary();
+      drawCadCanvas();
+      saveCurrentEditorProject(false);
+    }
+
+    function redoCad() {
+      const floor = getCurrentFloorData();
+      if (!floor || state.cad.redoStack.length === 0) return;
+      state.cad.undoStack.push(JSON.stringify(floor));
+      const next = JSON.parse(state.cad.redoStack.pop());
+      floor.walls = next.walls || [];
+      floor.rooms = next.rooms || [];
+      floor.openings = next.openings || [];
+      state.cad.selected = null;
+      updateUndoRedoButtons();
+      syncCadPropertiesPanel();
+      updateCadSummary();
+      drawCadCanvas();
+      saveCurrentEditorProject(false);
+    }
+
+    function updateUndoRedoButtons() {
+      document.getElementById('undoBtn').disabled = state.cad.undoStack.length === 0;
+      document.getElementById('redoBtn').disabled = state.cad.redoStack.length === 0;
+    }
+
+    function deleteSelectedCadItem() {
+      const floor = getCurrentFloorData();
+      const sel = state.cad.selected;
+      if (!floor || !sel) return;
+      pushUndoSnapshot();
+      if (sel.type === 'wall') floor.walls = floor.walls.filter(w => w.id !== sel.id);
+      else if (sel.type === 'room') floor.rooms = floor.rooms.filter(r => r.id !== sel.id);
+      else if (sel.type === 'opening') floor.openings = floor.openings.filter(o => o.id !== sel.id);
+      state.cad.selected = null;
+      syncCadPropertiesPanel();
+      updateCadSummary();
+      drawCadCanvas();
+      saveCurrentEditorProject(false);
+    }
+
+    function distPointToSegment(px, py, x1, y1, x2, y2) {
+      const dx = x2 - x1, dy = y2 - y1;
+      const lenSq = dx * dx + dy * dy;
+      if (lenSq === 0) return Math.hypot(px - x1, py - y1);
+      let t = ((px - x1) * dx + (py - y1) * dy) / lenSq;
+      t = Math.max(0, Math.min(1, t));
+      return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+    }
+
+    function hitTestFloor(floor, mx, my) {
+      const tol = Math.max(0.25, 10 / state.cad.zoom);
+      for (let i = floor.openings.length - 1; i >= 0; i--) {
+        const o = floor.openings[i];
+        if (Math.hypot(mx - o.x, my - o.y) <= Math.max(0.45, (o.width || 1) * 0.6)) {
+          return { type: 'opening', id: o.id };
+        }
+      }
+      for (let i = floor.walls.length - 1; i >= 0; i--) {
+        const w = floor.walls[i];
+        if (Math.hypot(mx - w.x1, my - w.y1) <= tol) return { type: 'wall', id: w.id, handle: 'p1' };
+        if (Math.hypot(mx - w.x2, my - w.y2) <= tol) return { type: 'wall', id: w.id, handle: 'p2' };
+        if (distPointToSegment(mx, my, w.x1, w.y1, w.x2, w.y2) <= tol) return { type: 'wall', id: w.id, handle: 'body' };
+      }
+      for (let i = floor.rooms.length - 1; i >= 0; i--) {
+        const r = floor.rooms[i];
+        if (mx >= r.x && mx <= r.x + r.w && my >= r.y && my <= r.y + r.h) {
+          return { type: 'room', id: r.id };
+        }
+      }
+      return null;
+    }
+
+    function bindCadEvents() {
+      const canvas = document.getElementById('cadCanvas');
+      const getPos = (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        return { x: clientX - rect.left, y: clientY - rect.top };
+      };
+
+      canvas.addEventListener('pointerdown', (e) => {
+        const pos = getPos(e);
+        const m = screenToMeters(pos.x, pos.y);
+        const sm = { x: snapMeters(m.x), y: snapMeters(m.y) };
+        const floor = getCurrentFloorData();
+        if (!floor) return;
+
+        if (e.button === 1 || e.shiftKey) {
+          state.cad.drag = { mode: 'pan', startX: pos.x, startY: pos.y, origPanX: state.cad.panX, origPanY: state.cad.panY };
+          return;
+        }
+
+        const tool = state.cad.tool;
+        if (tool === 'select') {
+          const hit = hitTestFloor(floor, m.x, m.y);
+          if (hit) {
+            state.cad.selected = { type: hit.type, id: hit.id };
+            pushUndoSnapshot();
+            if (hit.type === 'wall') {
+              const w = floor.walls.find(item => item.id === hit.id);
+              state.cad.drag = { mode: 'wall_' + hit.handle, wallId: w.id, startM: m, orig: { ...w } };
+            } else if (hit.type === 'room') {
+              const r = floor.rooms.find(item => item.id === hit.id);
+              state.cad.drag = { mode: 'room_move', roomId: r.id, startM: m, orig: { ...r } };
+            } else if (hit.type === 'opening') {
+              const o = floor.openings.find(item => item.id === hit.id);
+              state.cad.drag = { mode: 'opening_move', openingId: o.id, startM: m, orig: { ...o } };
+            }
+            syncCadPropertiesPanel();
+          } else {
+            state.cad.selected = null;
+            syncCadPropertiesPanel();
+            state.cad.drag = { mode: 'pan', startX: pos.x, startY: pos.y, origPanX: state.cad.panX, origPanY: state.cad.panY };
+          }
+          drawCadCanvas();
+        } else if (tool === 'wall') {
+          pushUndoSnapshot();
+          const thick = parseFloat(document.getElementById('newWallThicknessSelect').value) || 0.25;
+          const newWall = { id: uid(), x1: sm.x, y1: sm.y, x2: sm.x, y2: sm.y, thickness: thick };
+          floor.walls.push(newWall);
+          state.cad.selected = { type: 'wall', id: newWall.id };
+          state.cad.drag = { mode: 'drawing_wall', wallId: newWall.id, startM: sm };
+          syncCadPropertiesPanel();
+          drawCadCanvas();
+        } else if (tool === 'room') {
+          pushUndoSnapshot();
+          const rType = document.getElementById('newRoomTypeSelect').value || 'living';
+          const rMeta = ROOM_TYPE_META[rType] || ROOM_TYPE_META.living;
+          const countSame = floor.rooms.filter(r => r.type === rType).length + 1;
+          const newRoom = { id: uid(), name: countSame > 1 ? `${rMeta.label} ${countSame}` : rMeta.label, type: rType, x: sm.x, y: sm.y, w: 0.5, h: 0.5 };
+          floor.rooms.push(newRoom);
+          state.cad.selected = { type: 'room', id: newRoom.id };
+          state.cad.drag = { mode: 'drawing_room', roomId: newRoom.id, startM: sm };
+          syncCadPropertiesPanel();
+          drawCadCanvas();
+        } else if (tool === 'door' || tool === 'window') {
+          pushUndoSnapshot();
+          const isDoor = tool === 'door';
+          const newOp = { id: uid(), kind: isDoor ? 'door' : 'window', x: sm.x, y: sm.y, width: isDoor ? 0.95 : 1.5, angle: 0 };
+          floor.openings.push(newOp);
+          state.cad.selected = { type: 'opening', id: newOp.id };
+          syncCadPropertiesPanel();
+          updateCadSummary();
+          drawCadCanvas();
+          saveCurrentEditorProject(false);
+        } else if (tool === 'measure') {
+          state.cad.measureStart = sm;
+          state.cad.measureEnd = sm;
+          state.cad.drag = { mode: 'measuring' };
+          drawCadCanvas();
+        }
+      });
+
+      canvas.addEventListener('pointermove', (e) => {
+        const pos = getPos(e);
+        const m = screenToMeters(pos.x, pos.y);
+        const sm = { x: snapMeters(m.x), y: snapMeters(m.y) };
+        state.cad.pointerMeters = sm;
+        document.getElementById('cadLiveCoords').textContent = `X: ${sm.x.toFixed(2)}m | Y: ${sm.y.toFixed(2)}m`;
+
+        const drag = state.cad.drag;
+        const floor = getCurrentFloorData();
+        if (!drag || !floor) return;
+
+        if (drag.mode === 'pan') {
+          state.cad.panX = drag.origPanX + (pos.x - drag.startX);
+          state.cad.panY = drag.origPanY + (pos.y - drag.startY);
+          drawCadCanvas();
+        } else if (drag.mode === 'drawing_wall') {
+          const w = floor.walls.find(item => item.id === drag.wallId);
+          if (!w) return;
+          let tx = sm.x, ty = sm.y;
+          if (Math.abs(tx - drag.startM.x) < 0.35) tx = drag.startM.x;
+          if (Math.abs(ty - drag.startM.y) < 0.35) ty = drag.startM.y;
+          w.x2 = tx; w.y2 = ty;
+          syncCadPropertiesPanel();
+          drawCadCanvas();
+        } else if (drag.mode === 'wall_p1') {
+          const w = floor.walls.find(item => item.id === drag.wallId);
+          if (w) { w.x1 = sm.x; w.y1 = sm.y; syncCadPropertiesPanel(); drawCadCanvas(); }
+        } else if (drag.mode === 'wall_p2') {
+          const w = floor.walls.find(item => item.id === drag.wallId);
+          if (w) { w.x2 = sm.x; w.y2 = sm.y; syncCadPropertiesPanel(); drawCadCanvas(); }
+        } else if (drag.mode === 'wall_body') {
+          const w = floor.walls.find(item => item.id === drag.wallId);
+          if (w) {
+            const dx = sm.x - snapMeters(drag.startM.x);
+            const dy = sm.y - snapMeters(drag.startM.y);
+            w.x1 = +(drag.orig.x1 + dx).toFixed(2); w.y1 = +(drag.orig.y1 + dy).toFixed(2);
+            w.x2 = +(drag.orig.x2 + dx).toFixed(2); w.y2 = +(drag.orig.y2 + dy).toFixed(2);
+            syncCadPropertiesPanel(); drawCadCanvas();
+          }
+        } else if (drag.mode === 'drawing_room') {
+          const r = floor.rooms.find(item => item.id === drag.roomId);
+          if (r) {
+            const x1 = Math.min(drag.startM.x, sm.x), x2 = Math.max(drag.startM.x, sm.x);
+            const y1 = Math.min(drag.startM.y, sm.y), y2 = Math.max(drag.startM.y, sm.y);
+            r.x = x1; r.y = y1;
+            r.w = Math.max(0.5, +(x2 - x1).toFixed(2));
+            r.h = Math.max(0.5, +(y2 - y1).toFixed(2));
+            syncCadPropertiesPanel(); drawCadCanvas();
+          }
+        } else if (drag.mode === 'room_move') {
+          const r = floor.rooms.find(item => item.id === drag.roomId);
+          if (r) {
+            const dx = sm.x - snapMeters(drag.startM.x);
+            const dy = sm.y - snapMeters(drag.startM.y);
+            r.x = +(drag.orig.x + dx).toFixed(2);
+            r.y = +(drag.orig.y + dy).toFixed(2);
+            syncCadPropertiesPanel(); drawCadCanvas();
+          }
+        } else if (drag.mode === 'opening_move') {
+          const o = floor.openings.find(item => item.id === drag.openingId);
+          if (o) { o.x = sm.x; o.y = sm.y; syncCadPropertiesPanel(); drawCadCanvas(); }
+        } else if (drag.mode === 'measuring') {
+          state.cad.measureEnd = sm;
+          drawCadCanvas();
+        }
+      });
+
+      window.addEventListener('pointerup', () => {
+        if (!state.cad.drag) return;
+        const mode = state.cad.drag.mode;
+        state.cad.drag = null;
+        if (mode !== 'pan' && mode !== 'measuring') {
+          updateCadSummary();
+          saveCurrentEditorProject(false);
+        }
+      });
+
+      canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        zoomCad(e.deltaY < 0 ? 1.1 : 0.9);
+      }, { passive: false });
+
+      window.addEventListener('resize', () => {
+        if (state.view === 'editor' && state.editorMode === '2d') {
+          resizeCadCanvas();
+          drawCadCanvas();
+        }
+      });
+    }
+
+    function resizeCadCanvas() {
+      const canvas = document.getElementById('cadCanvas');
+      if (!canvas) return;
+      const dpr = window.devicePixelRatio || 1;
+      const w = canvas.clientWidth || 800;
+      const h = canvas.clientHeight || 550;
+      canvas.width = Math.round(w * dpr);
+      canvas.height = Math.round(h * dpr);
+      const ctx = canvas.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    function drawFloorGeometry(ctx, floor, isGhost = false) {
+      const zoom = state.cad.zoom;
+      const sel = state.cad.selected;
+      ctx.save();
+      if (isGhost) ctx.globalAlpha = 0.22;
+
+      (floor.rooms || []).forEach(r => {
+        const p = metersToScreen(r.x, r.y);
+        const rw = r.w * zoom, rh = r.h * zoom;
+        const meta = ROOM_TYPE_META[r.type] || ROOM_TYPE_META.living;
+        ctx.fillStyle = meta.fill;
+        ctx.fillRect(p.x, p.y, rw, rh);
+
+        const isSelected = !isGhost && sel && sel.type === 'room' && sel.id === r.id;
+        ctx.strokeStyle = isSelected ? '#fbbf24' : meta.stroke;
+        ctx.lineWidth = isSelected ? 2.5 : 1.3;
+        ctx.setLineDash([5, 3]);
+        ctx.strokeRect(p.x, p.y, rw, rh);
+        ctx.setLineDash([]);
+
+        if (!isGhost && rw > 34 && rh > 22) {
+          ctx.fillStyle = '#f8fafc';
+          ctx.font = 'bold 11px Cairo, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(r.name, p.x + rw / 2, p.y + rh / 2 - 4);
+          if (state.cad.showDims) {
+            ctx.fillStyle = '#93c5fd';
+            ctx.font = '10px JetBrains Mono, monospace';
+            ctx.fillText(`${r.w.toFixed(1)}×${r.h.toFixed(1)} (${(r.w * r.h).toFixed(1)}م²)`, p.x + rw / 2, p.y + rh / 2 + 10);
+          }
+        }
+      });
+
+      (floor.walls || []).forEach(w => {
+        const p1 = metersToScreen(w.x1, w.y1);
+        const p2 = metersToScreen(w.x2, w.y2);
+        const isSelected = !isGhost && sel && sel.type === 'wall' && sel.id === w.id;
+        const thickPx = Math.max(3, (w.thickness || 0.25) * zoom);
+
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.strokeStyle = isSelected ? '#fbbf24' : '#f1f5f9';
+        ctx.lineWidth = thickPx;
+        ctx.lineCap = 'square';
+        ctx.stroke();
+
+        if (!isGhost && state.cad.showDims) {
+          const len = Math.hypot(w.x2 - w.x1, w.y2 - w.y1);
+          if (len >= 0.4) {
+            const mx = (p1.x + p2.x) / 2;
+            const my = (p1.y + p2.y) / 2;
+            const label = `${len.toFixed(2)}م`;
+            ctx.font = '600 10px JetBrains Mono, monospace';
+            const tw = ctx.measureText(label).width + 8;
+            ctx.fillStyle = 'rgba(8, 19, 34, 0.88)';
+            ctx.fillRect(mx - tw / 2, my - 18, tw, 15);
+            ctx.fillStyle = isSelected ? '#fde047' : '#7dd3fc';
+            ctx.textAlign = 'center';
+            ctx.fillText(label, mx, my - 7);
+          }
+        }
+
+        if (!isGhost && isSelected) {
+          [p1, p2].forEach(pt => {
+            ctx.beginPath();
+            ctx.arc(pt.x, pt.y, 5, 0, Math.PI * 2);
+            ctx.fillStyle = '#fbbf24';
+            ctx.fill();
+            ctx.strokeStyle = '#081322';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+          });
+        }
+      });
+
+      (floor.openings || []).forEach(o => {
+        const p = metersToScreen(o.x, o.y);
+        const opW = Math.max(12, (o.width || 0.9) * zoom);
+        const isSelected = !isGhost && sel && sel.type === 'opening' && sel.id === o.id;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(((o.angle || 0) * Math.PI) / 180);
+
+        if (o.kind === 'door') {
+          ctx.strokeStyle = isSelected ? '#fbbf24' : '#f59e0b';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath(); ctx.moveTo(-opW / 2, 0); ctx.lineTo(opW / 2, 0); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(-opW / 2, 0); ctx.lineTo(-opW / 2, -opW); ctx.stroke();
+          ctx.setLineDash([3, 3]);
+          ctx.lineWidth = 1.2;
+          ctx.beginPath(); ctx.arc(-opW / 2, 0, opW, -Math.PI / 2, 0); ctx.stroke();
+          ctx.setLineDash([]);
+        } else {
+          ctx.fillStyle = isSelected ? '#fde047' : '#38bdf8';
+          ctx.strokeStyle = '#e0f2fe';
+          ctx.lineWidth = 1.5;
+          ctx.fillRect(-opW / 2, -4, opW, 8);
+          ctx.strokeRect(-opW / 2, -4, opW, 8);
+        }
+        ctx.restore();
+      });
+
+      ctx.restore();
+    }
+
+    function drawCadCanvas() {
+      const canvas = document.getElementById('cadCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.clientWidth || 800;
+      const h = canvas.clientHeight || 550;
+      const zoom = state.cad.zoom;
+
+      ctx.fillStyle = '#081322';
+      ctx.fillRect(0, 0, w, h);
+
+      const step = zoom;
+      const offsetX = ((state.cad.panX % step) + step) % step;
+      const offsetY = ((state.cad.panY % step) + step) % step;
+      ctx.strokeStyle = 'rgba(125, 211, 252, 0.08)';
+      ctx.lineWidth = 1;
+      for (let x = offsetX; x < w; x += step) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+      }
+      for (let y = offsetY; y < h; y += step) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+      }
+
+      const proj = getActiveProject();
+      if (proj) {
+        const tl = metersToScreen(0, 0);
+        const pw = (Number(proj.length) || 15) * zoom;
+        const ph = (Number(proj.width) || 12) * zoom;
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([7, 5]);
+        ctx.strokeRect(tl.x, tl.y, pw, ph);
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(125, 211, 252, 0.65)';
+        ctx.font = '11px Cairo, sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText(`حدود الأرض: ${proj.length}م × ${proj.width}م`, tl.x + pw - 6, tl.y - 6);
+      }
+
+      if (state.cad.ghostPrevFloor && proj && state.cad.activeFloor > 0) {
+        drawFloorGeometry(ctx, proj.cadFloors[state.cad.activeFloor - 1], true);
+      }
+
+      const floor = getCurrentFloorData();
+      if (floor) drawFloorGeometry(ctx, floor, false);
+
+      if (state.cad.measureStart && state.cad.measureEnd) {
+        const p1 = metersToScreen(state.cad.measureStart.x, state.cad.measureStart.y);
+        const p2 = metersToScreen(state.cad.measureEnd.x, state.cad.measureEnd.y);
+        const d = Math.hypot(state.cad.measureEnd.x - state.cad.measureStart.x, state.cad.measureEnd.y - state.cad.measureStart.y);
+        ctx.save();
+        ctx.strokeStyle = '#f43f5e';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#f43f5e';
+        ctx.font = 'bold 12px JetBrains Mono, monospace';
+        ctx.fillText(`${d.toFixed(2)} م`, (p1.x + p2.x) / 2 + 8, (p1.y + p2.y) / 2 - 8);
+        ctx.restore();
+      }
+    }
+
+    function syncCadPropertiesPanel() {
+      const floor = getCurrentFloorData();
+      const sel = state.cad.selected;
+      const badge = document.getElementById('cadSelectionBadge');
+      const delBtn = document.getElementById('deleteCadBtn');
+      const pEmpty = document.getElementById('propPanelEmpty');
+      const pWall = document.getElementById('propPanelWall');
+      const pRoom = document.getElementById('propPanelRoom');
+      const pOp = document.getElementById('propPanelOpening');
+
+      pEmpty.classList.add('hidden'); pWall.classList.add('hidden'); pRoom.classList.add('hidden'); pOp.classList.add('hidden');
+      delBtn.disabled = !sel;
+
+      if (!floor || !sel) { badge.textContent = 'لا يوجد تحديد'; pEmpty.classList.remove('hidden'); return; }
+
+      if (sel.type === 'wall') {
+        const w = floor.walls.find(item => item.id === sel.id);
+        if (!w) { pEmpty.classList.remove('hidden'); return; }
+        badge.textContent = 'جدار'; pWall.classList.remove('hidden');
+        document.getElementById('wallLengthInput').value = Math.hypot(w.x2 - w.x1, w.y2 - w.y1).toFixed(2);
+        document.getElementById('wallThicknessInput').value = w.thickness ?? 0.25;
+        document.getElementById('wallX1Input').value = w.x1; document.getElementById('wallY1Input').value = w.y1;
+        document.getElementById('wallX2Input').value = w.x2; document.getElementById('wallY2Input').value = w.y2;
+      } else if (sel.type === 'room') {
+        const r = floor.rooms.find(item => item.id === sel.id);
+        if (!r) { pEmpty.classList.remove('hidden'); return; }
+        badge.textContent = 'غرفة'; pRoom.classList.remove('hidden');
+        document.getElementById('roomNameInput').value = r.name;
+        document.getElementById('roomTypeInput').value = r.type || 'living';
+        document.getElementById('roomWInput').value = r.w; document.getElementById('roomHInput').value = r.h;
+        document.getElementById('roomAreaReadout').textContent = `${((r.w || 0) * (r.h || 0)).toFixed(2)} م²`;
+      } else if (sel.type === 'opening') {
+        const o = floor.openings.find(item => item.id === sel.id);
+        if (!o) { pEmpty.classList.remove('hidden'); return; }
+        badge.textContent = o.kind === 'door' ? 'باب' : 'نافذة';
+        pOp.classList.remove('hidden');
+        document.getElementById('openingTitleBadge').textContent = o.kind === 'door' ? 'باب معماري محدد' : 'نافذة معمارية محددة';
+        document.getElementById('openingWidthInput').value = o.width ?? 0.9;
+        document.getElementById('openingAngleInput').value = o.angle ?? 0;
+      }
+    }
+
+    function updateSelectedWall() {
+      const floor = getCurrentFloorData();
+      const sel = state.cad.selected;
+      if (!floor || !sel || sel.type !== 'wall') return;
+      const w = floor.walls.find(item => item.id === sel.id);
+      if (!w) return;
+      pushUndoSnapshot();
+      w.x1 = parseFloat(document.getElementById('wallX1Input').value) || 0;
+      w.y1 = parseFloat(document.getElementById('wallY1Input').value) || 0;
+      w.x2 = parseFloat(document.getElementById('wallX2Input').value) || 0;
+      w.y2 = parseFloat(document.getElementById('wallY2Input').value) || 0;
+      w.thickness = Math.max(0.1, parseFloat(document.getElementById('wallThicknessInput').value) || 0.25);
+      document.getElementById('wallLengthInput').value = Math.hypot(w.x2 - w.x1, w.y2 - w.y1).toFixed(2);
+      updateCadSummary(); drawCadCanvas(); saveCurrentEditorProject(false);
+    }
+
+    function applyWallLengthFromInput() {
+      const floor = getCurrentFloorData();
+      const sel = state.cad.selected;
+      if (!floor || !sel || sel.type !== 'wall') return;
+      const w = floor.walls.find(item => item.id === sel.id);
+      if (!w) return;
+      const targetLen = Math.max(0.2, parseFloat(document.getElementById('wallLengthInput').value) || 1);
+      const dx = w.x2 - w.x1, dy = w.y2 - w.y1;
+      const curLen = Math.hypot(dx, dy);
+      pushUndoSnapshot();
+      if (curLen < 0.001) { w.x2 = +(w.x1 + targetLen).toFixed(2); }
+      else { w.x2 = +(w.x1 + (dx / curLen) * targetLen).toFixed(2); w.y2 = +(w.y1 + (dy / curLen) * targetLen).toFixed(2); }
+      document.getElementById('wallX2Input').value = w.x2; document.getElementById('wallY2Input').value = w.y2;
+      updateCadSummary(); drawCadCanvas(); saveCurrentEditorProject(false);
+    }
+
+    function updateSelectedRoom() {
+      const floor = getCurrentFloorData();
+      const sel = state.cad.selected;
+      if (!floor || !sel || sel.type !== 'room') return;
+      const r = floor.rooms.find(item => item.id === sel.id);
+      if (!r) return;
+      r.name = (document.getElementById('roomNameInput').value || '').trim() || 'غرفة';
+      r.type = document.getElementById('roomTypeInput').value;
+      r.w = Math.max(0.5, parseFloat(document.getElementById('roomWInput').value) || 1);
+      r.h = Math.max(0.5, parseFloat(document.getElementById('roomHInput').value) || 1);
+      document.getElementById('roomAreaReadout').textContent = `${(r.w * r.h).toFixed(2)} م²`;
+      updateCadSummary(); drawCadCanvas(); saveCurrentEditorProject(false);
+    }
+
+    function updateSelectedOpening() {
+      const floor = getCurrentFloorData();
+      const sel = state.cad.selected;
+      if (!floor || !sel || sel.type !== 'opening') return;
+      const o = floor.openings.find(item => item.id === sel.id);
+      if (!o) return;
+      o.width = Math.max(0.5, parseFloat(document.getElementById('openingWidthInput').value) || 0.9);
+      o.angle = parseFloat(document.getElementById('openingAngleInput').value) || 0;
+      drawCadCanvas(); saveCurrentEditorProject(false);
+    }
+
+    function rotateSelectedOpening90() {
+      const floor = getCurrentFloorData();
+      const sel = state.cad.selected;
+      if (!floor || !sel || sel.type !== 'opening') return;
+      const o = floor.openings.find(item => item.id === sel.id);
+      if (!o) return;
+      o.angle = ((Number(o.angle) || 0) + 90) % 360;
+      document.getElementById('openingAngleInput').value = o.angle;
+      drawCadCanvas(); saveCurrentEditorProject(false);
+    }
+
+    function updateCadSummary() {
+      const floor = getCurrentFloorData();
+      if (!floor) return;
+      const roomsArea = (floor.rooms || []).reduce((acc, r) => acc + ((r.w || 0) * (r.h || 0)), 0);
+      const wallsLen = (floor.walls || []).reduce((acc, w) => acc + Math.hypot((w.x2 || 0) - (w.x1 || 0), (w.y2 || 0) - (w.y1 || 0)), 0);
+      document.getElementById('cadSummaryRooms').textContent = (floor.rooms || []).length;
+      document.getElementById('cadSummaryArea').textContent = `${roomsArea.toFixed(2)} م²`;
+      document.getElementById('cadSummaryWallsLen').textContent = `${wallsLen.toFixed(2)} م`;
+    }
+
+    function exportCadPng() {
+      const canvas = document.getElementById('cadCanvas');
+      const proj = getActiveProject();
+      if (!canvas) return;
+      const link = document.createElement('a');
+      link.download = `${(proj?.name || 'blueprint').replace(/\s+/g, '-')}-floor-${state.cad.activeFloor + 1}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    }
+
+    function saveCurrentEditorProject(showToast = true) {
+      const proj = getActiveProject();
+      if (!proj) return;
+      proj.updatedAt = new Date().toISOString();
+      saveProjectsToStorage();
+      if (showToast) {
+        const badge = document.getElementById('editorSaveStatus');
+        badge.classList.remove('hidden');
+        badge.textContent = 'تم الحفظ ✓';
+        setTimeout(() => badge.classList.add('hidden'), 1800);
+      }
+    }
+
+    // ================= المرحلة الثالثة: مولّد المخططات بالذكاء الاصطناعي =================
+    function openAiGeneratorModal() {
+      const proj = getActiveProject();
+      if (proj) {
+        document.getElementById('aiLandLen').value = proj.length || 16;
+        document.getElementById('aiLandWid').value = proj.width || 12;
+        document.getElementById('aiFloors').value = proj.floors || 2;
+        document.getElementById('aiBedrooms').value = proj.bedrooms ?? 3;
+        document.getElementById('aiBathrooms').value = proj.bathrooms ?? 2;
+        document.getElementById('aiStyle').value = proj.style || 'حديث';
+        document.getElementById('aiGarage').checked = Boolean(proj.garage);
+        document.getElementById('aiGarden').checked = Boolean(proj.garden);
+      }
+      state.ai.generatedFloors = null;
+      document.getElementById('applyAiPlanBtn').disabled = true;
+      document.getElementById('aiStatusMessage').textContent = '';
+      document.getElementById('aiGeneratorModal').classList.remove('hidden');
+      runAiPlanGeneration();
+    }
+
+    function closeAiGeneratorModal() {
+      document.getElementById('aiGeneratorModal').classList.add('hidden');
+    }
+
+    function setAiEngineMode(mode) {
+      state.ai.mode = mode;
+      const isLocal = mode === 'local';
+      document.getElementById('aiModeLocalBtn').className = isLocal
+        ? 'py-2 rounded-lg font-extrabold bg-indigo-600 text-white shadow-xs transition'
+        : 'py-2 rounded-lg font-extrabold text-slate-600 dark:text-slate-300 transition';
+      document.getElementById('aiModeGeminiBtn').className = !isLocal
+        ? 'py-2 rounded-lg font-extrabold bg-indigo-600 text-white shadow-xs transition'
+        : 'py-2 rounded-lg font-extrabold text-slate-600 dark:text-slate-300 transition';
+      document.getElementById('geminiConfigBox').classList.toggle('hidden', isLocal);
+    }
+
+    function saveGeminiKey() {
+      const key = (document.getElementById('geminiApiKeyInput').value || '').trim();
+      localStorage.setItem(STORAGE_KEYS.GEMINI_KEY, key);
+      updateGeminiKeyBadge(Boolean(key));
+      document.getElementById('aiStatusMessage').textContent = key ? 'تم حفظ مفتاح Gemini API محلياً.' : 'تم مسح المفتاح.';
+    }
+
+    function updateGeminiKeyBadge(hasKey) {
+      const el = document.getElementById('geminiKeyStatus');
+      if (!el) return;
+      el.textContent = hasKey ? 'مفتاح محفوظ ✓' : 'غير مضبوط';
+      el.className = hasKey ? 'text-[11px] font-bold text-emerald-600 dark:text-emerald-400' : 'text-[11px] font-semibold text-indigo-600 dark:text-indigo-300';
+    }
+
+    function parseNaturalPrompt() {
+      const txt = (document.getElementById('aiPromptText').value || '').trim();
+      if (!txt) return;
+      const dimMatch = txt.match(/(\d+(?:\.\d+)?)\s*(?:في|x|×|\*)\s*(\d+(?:\.\d+)?)/i);
+      if (dimMatch) {
+        document.getElementById('aiLandLen').value = parseFloat(dimMatch[1]);
+        document.getElementById('aiLandWid').value = parseFloat(dimMatch[2]);
+      }
+      if (/ثلاث\s*طوابق|3\s*طوابق|ثلاثة\s*طوابق|3\s*floors|3\s*étages/i.test(txt)) document.getElementById('aiFloors').value = 3;
+      else if (/طابقين|دورين|2\s*طابق|2\s*floors|2\s*étages/i.test(txt)) document.getElementById('aiFloors').value = 2;
+      else if (/طابق\s*واحد|دور\s*واحد|1\s*floor/i.test(txt)) document.getElementById('aiFloors').value = 1;
+
+      const bedMatch = txt.match(/(\d+)\s*(?:غرف\s*نوم|غرفة\s*نوم|bedrooms?|chambres?)/i);
+      if (bedMatch) document.getElementById('aiBedrooms').value = parseInt(bedMatch[1], 10);
+
+      const bathMatch = txt.match(/(\d+)\s*(?:حمامات|حمام|bathrooms?|salles?\s*de\s*bain)/i);
+      if (bathMatch) document.getElementById('aiBathrooms').value = parseInt(bathMatch[1], 10);
+
+      document.getElementById('aiGarage').checked = !/بدون\s*مرآب|لا\s*يوجد\s*مرآب|no\s*garage/i.test(txt) && (/مرآب|كراج|garage/i.test(txt) || document.getElementById('aiGarage').checked);
+      document.getElementById('aiGarden').checked = !/بدون\s*حديقة|no\s*garden/i.test(txt) && (/حديقة|فناء|garden|jardin/i.test(txt) || document.getElementById('aiGarden').checked);
+
+      if (/كلاسيك|classic/i.test(txt)) document.getElementById('aiStyle').value = 'كلاسيكي';
+      else if (/متوسط|mediterranean/i.test(txt)) document.getElementById('aiStyle').value = 'متوسطي';
+      else if (/صناع|industrial/i.test(txt)) document.getElementById('aiStyle').value = 'صناعي';
+      else document.getElementById('aiStyle').value = 'حديث';
+
+      runAiPlanGeneration();
+    }
+
+    function solveLocalArchitecturalPlan(params) {
+      const floors = [];
+      for (let f = 0; f < params.floors; f++) {
+        const plan = generateDefaultFloorPlan(params.length, params.width, params.bedrooms, params.bathrooms, params.garage, params.garden, f);
+        if (f === 0 && params.garden) {
+          const gW = Math.min(3.5, +(params.length * 0.22).toFixed(2));
+          if (gW >= 1.5) {
+            plan.rooms.push({
+              id: uid(),
+              name: 'حديقة أمامية',
+              type: 'garden',
+              x: 0.5,
+              y: +(params.width - 2.2).toFixed(2),
+              w: gW,
+              h: 1.7
+            });
+          }
+        }
+        floors.push(plan);
+      }
+      return floors;
+    }
+
+    async function runAiPlanGeneration() {
+      const params = {
+        length: Math.max(6, parseFloat(document.getElementById('aiLandLen').value) || 16),
+        width: Math.max(6, parseFloat(document.getElementById('aiLandWid').value) || 12),
+        floors: Math.max(1, Math.min(5, parseInt(document.getElementById('aiFloors').value, 10) || 2)),
+        bedrooms: Math.max(0, Math.min(8, parseInt(document.getElementById('aiBedrooms').value, 10) || 3)),
+        bathrooms: Math.max(0, Math.min(6, parseInt(document.getElementById('aiBathrooms').value, 10) || 2)),
+        style: document.getElementById('aiStyle').value,
+        garage: document.getElementById('aiGarage').checked,
+        garden: document.getElementById('aiGarden').checked,
+        prompt: (document.getElementById('aiPromptText').value || '').trim()
+      };
+
+      const btn = document.getElementById('generateAiPlanBtn');
+      const statusEl = document.getElementById('aiStatusMessage');
+      btn.disabled = true;
+
+      let generated = null;
+      let engineUsed = 'المحرك الخوارزمي المحلي (مجاني 100%)';
+
+      const apiKey = (localStorage.getItem(STORAGE_KEYS.GEMINI_KEY) || document.getElementById('geminiApiKeyInput').value || '').trim();
+      if (state.ai.mode === 'gemini' && apiKey) {
+        statusEl.textContent = 'جاري الاتصال بـ Google Gemini API...';
+        try {
+          const sysPrompt = `You are an architectural layout generator. Return ONLY valid JSON with key "floors" (array of {index,name,rooms:[{name,type,x,y,w,h}],walls:[{x1,y1,x2,y2,thickness}],openings:[{kind,x,y,width,angle}]}). Allowed room types: living,bedroom,kitchen,bathroom,office,garage,storage,garden. Allowed opening kind: door,window. Land size: ${params.length}m x ${params.width}m, floors: ${params.floors}, bedrooms: ${params.bedrooms}, bathrooms: ${params.bathrooms}, style: ${params.style}, garage: ${params.garage}, garden: ${params.garden}. Extra note: ${params.prompt}`;
+          const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: sysPrompt }] }],
+              generationConfig: { responseMimeType: 'application/json' }
+            })
+          });
+          if (!resp.ok) throw new Error('HTTP ' + resp.status);
+          const data = await resp.json();
+          const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          const parsed = JSON.parse(rawText);
+          if (Array.isArray(parsed.floors) && parsed.floors.length > 0) {
+            generated = parsed.floors.map((fl, idx) => ({
+              index: idx,
+              name: fl.name || (idx === 0 ? 'الطابق الأرضي' : `الطابق ${idx}`),
+              rooms: (fl.rooms || []).map(r => ({
+                id: uid(), name: r.name || 'غرفة', type: ROOM_TYPE_META[r.type] ? r.type : 'living',
+                x: Number(r.x) || 0.5, y: Number(r.y) || 0.5, w: Math.max(1, Number(r.w) || 3), h: Math.max(1, Number(r.h) || 3)
+              })),
+              walls: (fl.walls || []).map(w => ({
+                id: uid(), x1: Number(w.x1) || 0, y1: Number(w.y1) || 0, x2: Number(w.x2) || 4, y2: Number(w.y2) || 0, thickness: Number(w.thickness) || 0.25
+              })),
+              openings: (fl.openings || []).map(o => ({
+                id: uid(), kind: o.kind === 'window' ? 'window' : 'door', x: Number(o.x) || 1, y: Number(o.y) || 0, width: Number(o.width) || 0.9, angle: Number(o.angle) || 0
+              }))
+            }));
+            engineUsed = 'Google Gemini API (gemini-2.5-flash)';
+          }
+        } catch (err) {
+          generated = null;
+          statusEl.textContent = 'تعذر الوصول إلى Gemini API، تم التبديل تلقائياً إلى المحرك المحلي الفوري.';
+        }
+      }
+
+      if (!generated) {
+        generated = solveLocalArchitecturalPlan(params);
+      }
+
+      state.ai.generatedFloors = generated;
+      state.ai.generatedSummary = params;
+      btn.disabled = false;
+      document.getElementById('applyAiPlanBtn').disabled = false;
+      statusEl.textContent = `تم التوليد بواسطة: ${engineUsed} (${generated.length} طابق).`;
+
+      renderAiPreviewCanvas(generated, params);
+    }
+
+    function renderAiPreviewCanvas(floors, params) {
+      const canvas = document.getElementById('aiPreviewCanvas');
+      if (!canvas || !floors || !floors[0]) return;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#0a192f';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const f0 = floors[0];
+      const pad = 28;
+      const scale = Math.min((canvas.width - pad * 2) / params.length, (canvas.height - pad * 2) / params.width);
+      const ox = (canvas.width - params.length * scale) / 2;
+      const oy = (canvas.height - params.width * scale) / 2;
+
+      ctx.strokeStyle = 'rgba(125,211,252,0.4)';
+      ctx.setLineDash([4, 3]);
+      ctx.strokeRect(ox, oy, params.length * scale, params.width * scale);
+      ctx.setLineDash([]);
+
+      (f0.rooms || []).forEach(r => {
+        const meta = ROOM_TYPE_META[r.type] || ROOM_TYPE_META.living;
+        ctx.fillStyle = meta.fill;
+        ctx.strokeStyle = meta.stroke;
+        ctx.lineWidth = 1.2;
+        const rx = ox + r.x * scale, ry = oy + r.y * scale, rw = r.w * scale, rh = r.h * scale;
+        ctx.fillRect(rx, ry, rw, rh);
+        ctx.strokeRect(rx, ry, rw, rh);
+        if (rw > 28 && rh > 16) {
+          ctx.fillStyle = '#f8fafc';
+          ctx.font = 'bold 10px Cairo, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(r.name, rx + rw / 2, ry + rh / 2 + 3);
+        }
+      });
+
+      (f0.walls || []).forEach(w => {
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = Math.max(2, (w.thickness || 0.25) * scale * 0.65);
+        ctx.beginPath();
+        ctx.moveTo(ox + w.x1 * scale, oy + w.y1 * scale);
+        ctx.lineTo(ox + w.x2 * scale, oy + w.y2 * scale);
+        ctx.stroke();
+      });
+
+      const totalArea = floors.reduce((sum, fl) => sum + (fl.rooms || []).reduce((s, r) => s + r.w * r.h, 0), 0);
+      document.getElementById('aiPreviewStats').textContent = `${floors.length} طابق • ${totalArea.toFixed(1)} م²`;
+
+      const breakdown = document.getElementById('aiRoomsBreakdown');
+      breakdown.innerHTML = floors.map(fl => {
+        const list = (fl.rooms || []).map(r => `${escapeHtml(r.name)} (${(r.w * r.h).toFixed(1)}م²)`).join('، ');
+        return `<div><strong class="text-sky-300">${escapeHtml(fl.name)}:</strong> ${list || '—'}</div>`;
+      }).join('');
+    }
+
+    function applyGeneratedAiPlan() {
+      const proj = getActiveProject();
+      if (!proj || !state.ai.generatedFloors || !state.ai.generatedSummary) return;
+      pushUndoSnapshot();
+      const s = state.ai.generatedSummary;
+      proj.length = s.length;
+      proj.width = s.width;
+      proj.floors = s.floors;
+      proj.bedrooms = s.bedrooms;
+      proj.bathrooms = s.bathrooms;
+      proj.garage = s.garage;
+      proj.garden = s.garden;
+      proj.style = s.style;
+      proj.cadFloors = JSON.parse(JSON.stringify(state.ai.generatedFloors));
+      proj.updatedAt = new Date().toISOString();
+
+      saveProjectsToStorage();
+      closeAiGeneratorModal();
+      state.cad.activeFloor = 0;
+      state.cad.selected = null;
+      document.getElementById('editorProjectTitleBadge').textContent = `${proj.name} (${proj.length}×${proj.width}م)`;
+      refreshFloorSelect();
+      resetCadView();
+      syncCadPropertiesPanel();
+      updateCadSummary();
+      drawCadCanvas();
+      if (!document.getElementById('workspace3D').classList.contains('hidden')) {
+        rebuild3DScene();
+      }
+    }
+
+    // ================= المرحلة الرابعة: عارض ثلاثي الأبعاد 3D =================
+    let scene3d, camera3d, renderer3d, controls3d, buildingGroup3d, dirLight3d, ambLight3d;
+
+    function init3DViewerIfNeeded() {
+      if (state.viewer3d.initialized) {
+        on3DResize();
+        return;
+      }
+      const container = document.getElementById('threeContainer');
+      if (!container || typeof THREE === 'undefined') return;
+
+      const w = container.clientWidth || 800;
+      const h = container.clientHeight || 560;
+
+      scene3d = new THREE.Scene();
+      scene3d.background = new THREE.Color(0x07111e);
+
+      camera3d = new THREE.PerspectiveCamera(48, w / h, 0.1, 300);
+      camera3d.position.set(22, 18, 22);
+
+      renderer3d = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+      renderer3d.setSize(w, h);
+      renderer3d.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer3d.shadowMap.enabled = true;
+      renderer3d.shadowMap.type = THREE.PCFSoftShadowMap;
+      container.innerHTML = '';
+      container.appendChild(renderer3d.domElement);
+
+      controls3d = new THREE.OrbitControls(camera3d, renderer3d.domElement);
+      controls3d.enableDamping = true;
+      controls3d.dampingFactor = 0.06;
+      controls3d.target.set(7.5, 1.5, 6);
+
+      ambLight3d = new THREE.AmbientLight(0xffffff, 0.7);
+      scene3d.add(ambLight3d);
+
+      dirLight3d = new THREE.DirectionalLight(0xfff7ed, 1.15);
+      dirLight3d.position.set(18, 28, 16);
+      dirLight3d.castShadow = true;
+      dirLight3d.shadow.mapSize.width = 1024;
+      dirLight3d.shadow.mapSize.height = 1024;
+      scene3d.add(dirLight3d);
+
+      const grid = new THREE.GridHelper(60, 60, 0x2e6ab0, 0x122640);
+      grid.position.y = -0.02;
+      scene3d.add(grid);
+
+      buildingGroup3d = new THREE.Group();
+      scene3d.add(buildingGroup3d);
+
+      window.addEventListener('resize', on3DResize);
+      window.addEventListener('keydown', (e) => { state.viewer3d.keys[e.code] = true; });
+      window.addEventListener('keyup', (e) => { state.viewer3d.keys[e.code] = false; });
+
+      state.viewer3d.initialized = true;
+      animate3D();
+    }
+
+    function on3DResize() {
+      if (!state.viewer3d.initialized) return;
+      const container = document.getElementById('threeContainer');
+      if (!container) return;
+      const w = container.clientWidth || 800;
+      const h = container.clientHeight || 560;
+      camera3d.aspect = w / h;
+      camera3d.updateProjectionMatrix();
+      renderer3d.setSize(w, h);
+    }
+
+    function addFurnitureForRoom(parentGroup, room, baseY) {
+      const clay = state.viewer3d.clay;
+      const cx = room.x + room.w / 2;
+      const cz = room.y + room.h / 2;
+      const woodMat = new THREE.MeshStandardMaterial({ color: clay ? 0xe2e8f0 : 0x8b5a2b, roughness: 0.7 });
+      const fabricMat = new THREE.MeshStandardMaterial({ color: clay ? 0xf1f5f9 : 0x3b82f6, roughness: 0.8 });
+      const whiteMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.4 });
+      const metalMat = new THREE.MeshStandardMaterial({ color: clay ? 0xcbd5e1 : 0x475569, metalness: 0.5, roughness: 0.4 });
+
+      if (room.type === 'bedroom' && room.w >= 2.2 && room.h >= 2.2) {
+        const bedW = Math.min(1.8, room.w * 0.45);
+        const bedL = Math.min(2.0, room.h * 0.5);
+        const bed = new THREE.Mesh(new THREE.BoxGeometry(bedW, 0.45, bedL), fabricMat);
+        bed.position.set(cx, baseY + 0.225, cz);
+        bed.castShadow = true; bed.receiveShadow = true;
+        parentGroup.add(bed);
+
+        const head = new THREE.Mesh(new THREE.BoxGeometry(bedW, 0.85, 0.12), woodMat);
+        head.position.set(cx, baseY + 0.425, cz - bedL / 2);
+        head.castShadow = true;
+        parentGroup.add(head);
+      } else if (room.type === 'living' && room.w >= 2.5 && room.h >= 2.5) {
+        const sofa = new THREE.Mesh(new THREE.BoxGeometry(Math.min(2.2, room.w * 0.5), 0.55, 0.8), fabricMat);
+        sofa.position.set(cx, baseY + 0.275, cz - 0.6);
+        sofa.castShadow = true;
+        parentGroup.add(sofa);
+
+        const table = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.38, 0.6), woodMat);
+        table.position.set(cx, baseY + 0.19, cz + 0.35);
+        table.castShadow = true;
+        parentGroup.add(table);
+      } else if (room.type === 'kitchen' && room.w >= 1.8 && room.h >= 1.8) {
+        const counter = new THREE.Mesh(new THREE.BoxGeometry(Math.min(2.2, room.w * 0.65), 0.88, 0.6), metalMat);
+        counter.position.set(cx, baseY + 0.44, room.y + 0.45);
+        counter.castShadow = true;
+        parentGroup.add(counter);
+      } else if (room.type === 'bathroom') {
+        const tub = new THREE.Mesh(new THREE.BoxGeometry(Math.min(1.4, room.w * 0.55), 0.48, Math.min(0.8, room.h * 0.45)), whiteMat);
+        tub.position.set(cx, baseY + 0.24, cz);
+        tub.castShadow = true;
+        parentGroup.add(tub);
+      } else if (room.type === 'garage') {
+        const car = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.35, 3.8), new THREE.MeshStandardMaterial({ color: clay ? 0xe2e8f0 : 0xef4444, roughness: 0.35, metalness: 0.4 }));
+        car.position.set(cx, baseY + 0.675, cz);
+        car.castShadow = true;
+        parentGroup.add(car);
+      }
+    }
+
+    function rebuild3DScene() {
+      if (!state.viewer3d.initialized) return;
+      const proj = getActiveProject();
+      if (!proj) return;
+      ensureProjectFloors(proj);
+
+      while (buildingGroup3d.children.length > 0) {
+        buildingGroup3d.remove(buildingGroup3d.children[0]);
+      }
+
+      const scope = document.getElementById('viewer3dScopeSelect')?.value || 'all';
+      const floorsToRender = scope === 'current'
+        ? [{ data: proj.cadFloors[state.cad.activeFloor] || proj.cadFloors[0], level: 0 }]
+        : proj.cadFloors.map((d, idx) => ({ data: d, level: idx }));
+
+      const floorHeight = 3.2;
+      const isCutaway = state.viewer3d.cameraMode === 'cutaway';
+      const wallH = isCutaway ? 1.15 : floorHeight;
+      const clay = state.viewer3d.clay;
+
+      const plotMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(Number(proj.length) || 15, 0.16, Number(proj.width) || 12),
+        new THREE.MeshStandardMaterial({ color: clay ? 0xcbd5e1 : 0x1e293b, roughness: 0.9 })
+      );
+      plotMesh.position.set((Number(proj.length) || 15) / 2, -0.08, (Number(proj.width) || 12) / 2);
+      plotMesh.receiveShadow = true;
+      buildingGroup3d.add(plotMesh);
+
+      floorsToRender.forEach(({ data, level }) => {
+        if (!data) return;
+        const baseY = level * floorHeight;
+
+        const slab = new THREE.Mesh(
+          new THREE.BoxGeometry(Number(proj.length) || 15, 0.2, Number(proj.width) || 12),
+          new THREE.MeshStandardMaterial({ color: clay ? 0xe2e8f0 : 0x334155, roughness: 0.8 })
+        );
+        slab.position.set((Number(proj.length) || 15) / 2, baseY + 0.1, (Number(proj.width) || 12) / 2);
+        slab.receiveShadow = true;
+        buildingGroup3d.add(slab);
+
+        (data.rooms || []).forEach(r => {
+          const meta = ROOM_TYPE_META[r.type] || ROOM_TYPE_META.living;
+          const floorMat = new THREE.MeshStandardMaterial({
+            color: clay ? 0xf8fafc : (meta.floor3d || 0xe2e8f0),
+            roughness: 0.65
+          });
+          const rFloor = new THREE.Mesh(new THREE.BoxGeometry(Math.max(0.2, r.w - 0.04), 0.04, Math.max(0.2, r.h - 0.04)), floorMat);
+          rFloor.position.set(r.x + r.w / 2, baseY + 0.22, r.y + r.h / 2);
+          rFloor.receiveShadow = true;
+          buildingGroup3d.add(rFloor);
+
+          if (state.viewer3d.furniture) {
+            addFurnitureForRoom(buildingGroup3d, r, baseY + 0.24);
+          }
+        });
+
+        const wallMat = new THREE.MeshStandardMaterial({
+          color: clay ? 0xf1f5f9 : 0xe2e8f0,
+          roughness: 0.75
+        });
+
+        (data.walls || []).forEach(w => {
+          const dx = w.x2 - w.x1, dy = w.y2 - w.y1;
+          const len = Math.hypot(dx, dy);
+          if (len < 0.05) return;
+          const thick = Math.max(0.12, w.thickness || 0.25);
+          const angle = Math.atan2(dy, dx);
+
+          const nearbyOpenings = (data.openings || []).filter(o => {
+            const projT = ((o.x - w.x1) * dx + (o.y - w.y1) * dy) / (len * len);
+            if (projT < 0 || projT > 1) return false;
+            const px = w.x1 + projT * dx, py = w.y1 + projT * dy;
+            return Math.hypot(o.x - px, o.y - py) < 0.75;
+          });
+
+          if (!isCutaway && nearbyOpenings.length === 1) {
+            const op = nearbyOpenings[0];
+            const opW = Math.min(len * 0.7, op.width || 0.9);
+            const distFromStart = Math.hypot(op.x - w.x1, op.y - w.y1);
+            const seg1Len = Math.max(0, distFromStart - opW / 2);
+            const seg2Len = Math.max(0, len - (distFromStart + opW / 2));
+
+            const addWallSeg = (sLen, sCenterDist, sH, sBottomY) => {
+              if (sLen <= 0.05 || sH <= 0.05) return;
+              const mesh = new THREE.Mesh(new THREE.BoxGeometry(sLen, sH, thick), wallMat);
+              const mx = w.x1 + (dx / len) * sCenterDist;
+              const mz = w.y1 + (dy / len) * sCenterDist;
+              mesh.position.set(mx, sBottomY + sH / 2, mz);
+              mesh.rotation.y = -angle;
+              mesh.castShadow = true; mesh.receiveShadow = true;
+              buildingGroup3d.add(mesh);
+            };
+
+            addWallSeg(seg1Len, seg1Len / 2, wallH, baseY + 0.2);
+            addWallSeg(seg2Len, distFromStart + opW / 2 + seg2Len / 2, wallH, baseY + 0.2);
+
+            if (op.kind === 'window') {
+              const sillH = 0.9, winH = 1.25;
+              addWallSeg(opW, distFromStart, sillH, baseY + 0.2);
+              const topStart = baseY + 0.2 + sillH + winH;
+              addWallSeg(opW, distFromStart, Math.max(0.1, (baseY + 0.2 + wallH) - topStart), topStart);
+
+              const glass = new THREE.Mesh(
+                new THREE.BoxGeometry(opW, winH, 0.05),
+                new THREE.MeshStandardMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.45, roughness: 0.1 })
+              );
+              glass.position.set(op.x, baseY + 0.2 + sillH + winH / 2, op.y);
+              glass.rotation.y = -angle;
+              buildingGroup3d.add(glass);
+            } else {
+              const doorH = 2.15;
+              const topStart = baseY + 0.2 + doorH;
+              addWallSeg(opW, distFromStart, Math.max(0.1, (baseY + 0.2 + wallH) - topStart), topStart);
+
+              const leaf = new THREE.Mesh(
+                new THREE.BoxGeometry(opW * 0.92, doorH, 0.06),
+                new THREE.MeshStandardMaterial({ color: clay ? 0xe2e8f0 : 0x92400e, roughness: 0.6 })
+              );
+              leaf.position.set(op.x + 0.15, baseY + 0.2 + doorH / 2, op.y + 0.25);
+              leaf.rotation.y = -angle + 0.55;
+              leaf.castShadow = true;
+              buildingGroup3d.add(leaf);
+            }
+          } else {
+            const wallMesh = new THREE.Mesh(new THREE.BoxGeometry(len, wallH, thick), wallMat);
+            wallMesh.position.set((w.x1 + w.x2) / 2, baseY + 0.2 + wallH / 2, (w.y1 + w.y2) / 2);
+            wallMesh.rotation.y = -angle;
+            wallMesh.castShadow = true; wallMesh.receiveShadow = true;
+            buildingGroup3d.add(wallMesh);
+          }
+        });
+      });
+
+      reset3dCamera();
+    }
+
+    function set3dCameraMode(mode) {
+      state.viewer3d.cameraMode = mode;
+      ['orbit', 'cutaway', 'walk'].forEach(m => {
+        const btn = document.getElementById('cam3d' + m.charAt(0).toUpperCase() + m.slice(1) + 'Btn');
+        if (btn) btn.className = (m === mode)
+          ? 'px-2.5 py-1.5 rounded-lg font-bold bg-blueprint-700 text-white whitespace-nowrap'
+          : 'px-2.5 py-1.5 rounded-lg font-bold bg-slate-100 dark:bg-blueprint-800 text-slate-700 dark:text-slate-200 whitespace-nowrap';
+      });
+      document.getElementById('walkControlsPad').classList.toggle('hidden', mode !== 'walk');
+      rebuild3DScene();
+    }
+
+    function reset3dCamera() {
+      if (!camera3d || !controls3d) return;
+      const proj = getActiveProject();
+      const l = Number(proj?.length) || 15;
+      const w = Number(proj?.width) || 12;
+      const f = Number(proj?.floors) || 1;
+      if (state.viewer3d.cameraMode === 'walk') {
+        camera3d.position.set(l * 0.35, 1.85, w * 0.35);
+        controls3d.target.set(l * 0.65, 1.65, w * 0.5);
+      } else {
+        const dist = Math.max(l, w) * 1.45 + f * 2;
+        camera3d.position.set(l * 0.5 + dist * 0.65, dist * 0.65, w * 0.5 + dist * 0.65);
+        controls3d.target.set(l / 2, (f * 3.2) * 0.35, w / 2);
+      }
+      controls3d.update();
+    }
+
+    function toggle3dFurniture() {
+      state.viewer3d.furniture = !state.viewer3d.furniture;
+      const btn = document.getElementById('btn3dFurniture');
+      btn.textContent = state.viewer3d.furniture ? '🛋 الأثاث: مفعل' : '🛋 الأثاث: مخفي';
+      btn.className = state.viewer3d.furniture
+        ? 'px-2.5 py-1.5 rounded-lg font-bold bg-emerald-600 text-white whitespace-nowrap'
+        : 'px-2.5 py-1.5 rounded-lg font-bold bg-slate-100 dark:bg-blueprint-800 text-slate-700 dark:text-slate-200 whitespace-nowrap';
+      rebuild3DScene();
+    }
+
+    function toggle3dLighting() {
+      state.viewer3d.night = !state.viewer3d.night;
+      const btn = document.getElementById('btn3dLighting');
+      if (state.viewer3d.night) {
+        scene3d.background = new THREE.Color(0x030712);
+        ambLight3d.intensity = 0.25;
+        dirLight3d.intensity = 0.35;
+        dirLight3d.color.setHex(0x93c5fd);
+        btn.textContent = '🌙 ليل';
+        btn.className = 'px-2.5 py-1.5 rounded-lg font-bold bg-indigo-700 text-white whitespace-nowrap';
+      } else {
+        scene3d.background = new THREE.Color(0x07111e);
+        ambLight3d.intensity = 0.7;
+        dirLight3d.intensity = 1.15;
+        dirLight3d.color.setHex(0xfff7ed);
+        btn.textContent = '☀️ نهار';
+        btn.className = 'px-2.5 py-1.5 rounded-lg font-bold bg-slate-100 dark:bg-blueprint-800 text-slate-700 dark:text-slate-200 whitespace-nowrap';
+      }
+    }
+
+    function toggle3dClay() {
+      state.viewer3d.clay = !state.viewer3d.clay;
+      const btn = document.getElementById('btn3dClay');
+      btn.className = state.viewer3d.clay
+        ? 'px-2.5 py-1.5 rounded-lg font-bold bg-amber-600 text-white whitespace-nowrap'
+        : 'px-2.5 py-1.5 rounded-lg font-bold bg-slate-100 dark:bg-blueprint-800 text-slate-700 dark:text-slate-200 whitespace-nowrap';
+      rebuild3DScene();
+    }
+
+    function export3dSnapshot() {
+      if (!renderer3d) return;
+      renderer3d.render(scene3d, camera3d);
+      const proj = getActiveProject();
+      const link = document.createElement('a');
+      link.download = `${(proj?.name || 'model-3d').replace(/\s+/g, '-')}-3D.png`;
+      link.href = renderer3d.domElement.toDataURL('image/png');
+      link.click();
+    }
+
+    function setWalkDir(axis, val) {
+      state.viewer3d.walkDir[axis] = val;
+    }
+
+    function animate3D() {
+      requestAnimationFrame(animate3D);
+      if (!state.viewer3d.initialized || document.getElementById('workspace3D').classList.contains('hidden')) return;
+
+      if (state.viewer3d.cameraMode === 'walk') {
+        const k = state.viewer3d.keys;
+        let fwd = state.viewer3d.walkDir.forward;
+        let turn = state.viewer3d.walkDir.turn;
+        if (k['KeyW'] || k['ArrowUp']) fwd = 1;
+        if (k['KeyS'] || k['ArrowDown']) fwd = -1;
+        if (k['KeyA'] || k['ArrowLeft']) turn = 1;
+        if (k['KeyD'] || k['ArrowRight']) turn = -1;
+
+        if (turn !== 0) {
+          const offset = camera3d.position.clone().sub(controls3d.target);
+          offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), turn * 0.035);
+          camera3d.position.copy(controls3d.target).add(offset);
+        }
+        if (fwd !== 0) {
+          const dir = controls3d.target.clone().sub(camera3d.position).setY(0).normalize().multiplyScalar(fwd * 0.14);
+          camera3d.position.add(dir);
+          controls3d.target.add(dir);
+        }
+      }
+
+      controls3d.update();
+      renderer3d.render(scene3d, camera3d);
+    }
+
+    // ================= المراحل 5 و 6: المساحات والكميات وتصدير PDF =================
+    function calculateProjectBOQ(proj) {
+      ensureProjectFloors(proj);
+      const allRooms = [];
+      let totalRoomsArea = 0;
+      let totalWallsLen = 0;
+      let totalWallAreaSide = 0;
+      let doorsCount = 0;
+      let windowsCount = 0;
+      const floorHeight = 3.2;
+
+      proj.cadFloors.forEach(fl => {
+        (fl.rooms || []).forEach(r => {
+          const area = (Number(r.w) || 0) * (Number(r.h) || 0);
+          totalRoomsArea += area;
+          allRooms.push({
+            floorName: fl.name || `الطابق ${fl.index + 1}`,
+            name: r.name || 'غرفة',
+            type: r.type || 'living',
+            w: Number(r.w) || 0,
+            h: Number(r.h) || 0,
+            area
+          });
+        });
+
+        (fl.walls || []).forEach(w => {
+          const len = Math.hypot((w.x2 || 0) - (w.x1 || 0), (w.y2 || 0) - (w.y1 || 0));
+          totalWallsLen += len;
+          totalWallAreaSide += len * floorHeight;
+        });
+
+        (fl.openings || []).forEach(o => {
+          if (o.kind === 'window') windowsCount++;
+          else doorsCount++;
+        });
+      });
+
+      const waste = 1.10;
+      const blocksCount = Math.ceil(totalWallAreaSide * 12.5 * waste);
+      const cementBags = Math.ceil((blocksCount * 0.012 + totalRoomsArea * 0.08) * waste);
+      const plasterArea = +(totalWallAreaSide * 2 * waste).toFixed(1);
+      const tilesArea = +(totalRoomsArea * waste).toFixed(1);
+      const estCost = Math.round(blocksCount * 0.9 + cementBags * 7.5 + tilesArea * 14 + doorsCount * 160 + windowsCount * 190);
+
+      return {
+        allRooms,
+        totalRoomsArea,
+        totalWallsLen,
+        doorsCount,
+        windowsCount,
+        materials: [
+          { item: 'بلوك / طوب بناء (20×20×40 سم)', qty: blocksCount.toLocaleString('en-US'), unit: 'بلوكة', note: 'محسوب على ~12.5 بلوكة/م² مع 10% هدر' },
+          { item: 'إسمنت بورتلاندي (أكياس 50 كغ)', qty: cementBags.toLocaleString('en-US'), unit: 'كيس', note: 'تقدير أولي للمونة والكساء والأرضيات' },
+          { item: 'لياسة / محارة داخلية وخارجية', qty: plasterArea.toLocaleString('en-US'), unit: 'م²', note: 'وجهي الجدران بارتفاع 3.2م مع 10% هدر' },
+          { item: 'بلاط / أرضيات وتشطيبات', qty: tilesArea.toLocaleString('en-US'), unit: 'م²', note: 'إجمالي مساحات الغرف مع 10% هدر' },
+          { item: 'أبواب ونوافذ (تقدير عددي)', qty: `${doorsCount} باب / ${windowsCount} نافذة`, unit: 'وحدة', note: 'حسب الفتحات المضافة في المخطط' }
+        ],
+        estCost
+      };
+    }
+
+    function openReportModal(defaultTab = 'boq') {
+      const proj = getActiveProject();
+      if (!proj) return;
+      const boq = calculateProjectBOQ(proj);
+
+      document.getElementById('boqTotalRoomsArea').textContent = `${boq.totalRoomsArea.toFixed(2)} م²`;
+      document.getElementById('boqTotalWallsLen').textContent = `${boq.totalWallsLen.toFixed(2)} م`;
+      document.getElementById('boqOpeningsCount').textContent = `${boq.doorsCount} / ${boq.windowsCount}`;
+      document.getElementById('boqEstCost').textContent = `~$${boq.estCost.toLocaleString('en-US')}`;
+
+      const roomsBody = document.getElementById('boqRoomsTableBody');
+      roomsBody.innerHTML = boq.allRooms.length
+        ? boq.allRooms.map(r => {
+            const meta = ROOM_TYPE_META[r.type] || ROOM_TYPE_META.living;
+            return `
+              <tr>
+                <td class="p-2.5 font-semibold">${escapeHtml(r.floorName)}</td>
+                <td class="p-2.5 font-bold">${escapeHtml(r.name)}</td>
+                <td class="p-2.5"><span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${meta.badge}">${meta.label}</span></td>
+                <td class="p-2.5 font-mono">${r.w.toFixed(2)} × ${r.h.toFixed(2)}</td>
+                <td class="p-2.5 font-mono font-bold text-emerald-700 dark:text-emerald-400">${r.area.toFixed(2)} م²</td>
+              </tr>
+            `;
+          }).join('')
+        : `<tr><td colspan="5" class="p-4 text-center text-slate-400">لا توجد غرف مسجلة في المخطط بعد.</td></tr>`;
+
+      const matBody = document.getElementById('boqMaterialsTableBody');
+      matBody.innerHTML = boq.materials.map(m => `
+        <tr>
+          <td class="p-2.5 font-bold">${escapeHtml(m.item)}</td>
+          <td class="p-2.5 font-mono font-bold text-blueprint-800 dark:text-sky-300">${escapeHtml(m.qty)}</td>
+          <td class="p-2.5">${escapeHtml(m.unit)}</td>
+          <td class="p-2.5 text-slate-500 dark:text-slate-400">${escapeHtml(m.note)}</td>
+        </tr>
+      `).join('');
+
+      buildPrintableReportHtml(proj, boq);
+      document.getElementById('pdfPreviewBox').innerHTML = document.getElementById('printReportRoot').innerHTML;
+
+      switchReportTab(defaultTab);
+      document.getElementById('reportModal').classList.remove('hidden');
+    }
+
+    function closeReportModal() {
+      document.getElementById('reportModal').classList.add('hidden');
+    }
+
+    function switchReportTab(tab) {
+      const isBoq = tab === 'boq';
+      document.getElementById('reportBoqPane').classList.toggle('hidden', !isBoq);
+      document.getElementById('reportPdfPane').classList.toggle('hidden', isBoq);
+      document.getElementById('tabBoqBtn').className = isBoq
+        ? 'px-3 py-1.5 rounded-lg text-xs font-extrabold bg-amber-600 text-white'
+        : 'px-3 py-1.5 rounded-lg text-xs font-extrabold bg-blueprint-800 text-slate-200 hover:bg-blueprint-700';
+      document.getElementById('tabPdfBtn').className = !isBoq
+        ? 'px-3 py-1.5 rounded-lg text-xs font-extrabold bg-rose-600 text-white'
+        : 'px-3 py-1.5 rounded-lg text-xs font-extrabold bg-blueprint-800 text-slate-200 hover:bg-blueprint-700';
+    }
+
+    function buildPrintableReportHtml(proj, boq) {
+      const tMeta = getProjectTypeMeta(proj.type);
+      const cadCanvas = document.getElementById('cadCanvas');
+      const planImgSrc = cadCanvas ? cadCanvas.toDataURL('image/png') : '';
+      const designer = state.settings.designerName || 'AI Architect Platform';
+      const dateStr = new Date().toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' });
+
+      const roomsRows = boq.allRooms.map(r => `
+        <tr>
+          <td style="border:1px solid #cbd5e1;padding:6px 8px;">${escapeHtml(r.floorName)}</td>
+          <td style="border:1px solid #cbd5e1;padding:6px 8px;font-weight:700;">${escapeHtml(r.name)}</td>
+          <td style="border:1px solid #cbd5e1;padding:6px 8px;">${r.w.toFixed(2)} × ${r.h.toFixed(2)} م</td>
+          <td style="border:1px solid #cbd5e1;padding:6px 8px;font-family:monospace;">${r.area.toFixed(2)} م²</td>
+        </tr>
+      `).join('');
+
+      const matRows = boq.materials.map(m => `
+        <tr>
+          <td style="border:1px solid #cbd5e1;padding:6px 8px;font-weight:700;">${escapeHtml(m.item)}</td>
+          <td style="border:1px solid #cbd5e1;padding:6px 8px;font-family:monospace;">${escapeHtml(m.qty)} ${escapeHtml(m.unit)}</td>
+          <td style="border:1px solid #cbd5e1;padding:6px 8px;color:#475569;">${escapeHtml(m.note)}</td>
+        </tr>
+      `).join('');
+
+      document.getElementById('printReportRoot').innerHTML = `
+        <div dir="rtl" style="font-family:'Cairo',sans-serif;color:#0f172a;padding:16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #0b192c;padding-bottom:10px;margin-bottom:14px;">
+            <div>
+              <h2 style="margin:0;font-size:20px;font-weight:800;color:#0b192c;">AI Architect – تقرير مخطط وحصر كميات أولي</h2>
+              <div style="font-size:12px;color:#475569;">المشروع: <strong>${escapeHtml(proj.name)}</strong> | النوع: ${tMeta.name} | الأبعاد: ${proj.length}م × ${proj.width}م | الطوابق: ${proj.floors}</div>
+            </div>
+            <div style="text-align:left;font-size:11px;color:#475569;">
+              <div>التاريخ: ${dateStr}</div>
+              <div>المُعد: ${escapeHtml(designer)}</div>
+            </div>
+          </div>
+
+          <div style="background:#fffbeb;border:1px solid #f59e0b;color:#78350f;padding:8px 12px;border-radius:8px;font-size:11px;margin-bottom:14px;">
+            <strong>تنبيه هندسي:</strong> هذا التقرير والمخطط تصوري أولي لأغراض التخطيط والتقدير المبدئي، ولا يُعد صالحاً للتنفيذ الإنشائي أو المعماري دون مراجعة واعتماد مهندس مختص.
+          </div>
+
+          ${planImgSrc ? `
+            <div style="margin-bottom:16px;text-align:center;">
+              <div style="font-size:13px;font-weight:700;margin-bottom:6px;text-align:right;">لوحة المخطط الهندسي (الطابق ${state.cad.activeFloor + 1})</div>
+              <img src="${planImgSrc}" style="max-width:100%;max-height:340px;border:1px solid #cbd5e1;border-radius:8px;" />
+            </div>
+          ` : ''}
+
+          <h3 style="font-size:14px;font-weight:800;margin:12px 0 6px;">جدول الغرف والمساحات (الإجمالي: ${boq.totalRoomsArea.toFixed(2)} م²)</h3>
+          <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px;">
+            <thead>
+              <tr style="background:#f1f5f9;">
+                <th style="border:1px solid #cbd5e1;padding:6px 8px;text-align:right;">الطابق</th>
+                <th style="border:1px solid #cbd5e1;padding:6px 8px;text-align:right;">الغرفة</th>
+                <th style="border:1px solid #cbd5e1;padding:6px 8px;text-align:right;">الأبعاد</th>
+                <th style="border:1px solid #cbd5e1;padding:6px 8px;text-align:right;">المساحة</th>
+              </tr>
+            </thead>
+            <tbody>${roomsRows || '<tr><td colspan="4" style="padding:8px;text-align:center;">لا توجد غرف</td></tr>'}</tbody>
+          </table>
+
+          <h3 style="font-size:14px;font-weight:800;margin:12px 0 6px;">تقدير أولي لكميات مواد البناء</h3>
+          <table style="width:100%;border-collapse:collapse;font-size:12px;">
+            <thead>
+              <tr style="background:#f1f5f9;">
+                <th style="border:1px solid #cbd5e1;padding:6px 8px;text-align:right;">المادة</th>
+                <th style="border:1px solid #cbd5e1;padding:6px 8px;text-align:right;">الكمية</th>
+                <th style="border:1px solid #cbd5e1;padding:6px 8px;text-align:right;">ملاحظات</th>
+              </tr>
+            </thead>
+            <tbody>${matRows}</tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function triggerPrintReport() {
+      const proj = getActiveProject();
+      if (proj) {
+        const boq = calculateProjectBOQ(proj);
+        buildPrintableReportHtml(proj, boq);
+      }
+      const printRoot = document.getElementById('printReportRoot');
+      printRoot.classList.remove('hidden');
+      window.print();
+      setTimeout(() => printRoot.classList.add('hidden'), 500);
+    }
+
+
+    function runStage7Diagnostics() {
+      const checks = [];
+      checks.push({ name: 'المشاريع المحفوظة', ok: Array.isArray(state.projects) && state.projects.length > 0, detail: `${state.projects.length} مشروع` });
+      const p = state.projects[0];
+      if (p) {
+        const boq = calculateProjectBOQ(p);
+        checks.push({ name: 'حساب المساحات والكميات', ok: boq.totalWallsLen > 0 && boq.materials.length === 5, detail: `${boq.totalRoomsArea.toFixed(1)} م² • ${boq.totalWallsLen.toFixed(1)} م` });
+      }
+      checks.push({ name: 'محرك ثلاثي الأبعاد Three.js', ok: typeof THREE !== 'undefined', detail: typeof THREE !== 'undefined' ? 'متاح' : 'غير محمل' });
+      return checks;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadState();
+      initStaticSections();
+      bindCadEvents();
+      navigateTo('landing');
+    });
+  </script>
+</body>
+</html>
